@@ -1,5 +1,5 @@
 @echo off
-cd /d "%~dp0"ц
+cd /d "%~dp0"
 
 set "SCRIPT_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/Lorebook%%20Gemini%%20Translator.py"
 set "ICON_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/icon.ico"
