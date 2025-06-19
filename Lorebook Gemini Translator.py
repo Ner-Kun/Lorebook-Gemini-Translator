@@ -7,6 +7,7 @@ APP_VERSION = "0.1.0"
 LAUNCHER_NAME = "run_translator.bat"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/"
 
+
 def check_launcher_version():
     if not os.path.exists(LAUNCHER_NAME):
         print(f"WARNING: {LAUNCHER_NAME} not found. Cannot check its version.")
@@ -16,17 +17,24 @@ def check_launcher_version():
         with open(LAUNCHER_NAME, 'r', encoding='utf-8', errors='ignore') as f:
             content = f.read()
             if "google-generativeai" in content:
-                from PySide6 import QtWidgets
+                from PySide6 import QtWidgets, QtGui
                 _ = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
                 
                 msg_box = QtWidgets.QMessageBox()
                 msg_box.setIcon(QtWidgets.QMessageBox.Critical)
                 msg_box.setWindowTitle("Launcher Out of Date")
                 msg_box.setText(f"Your launcher file ({LAUNCHER_NAME}) is outdated.")
-                msg_box.setInformativeText(
-                    "To continue, please download the new 'run_translator.bat' from the project's GitHub page and replace your old file.\n\n"
-                    "The application will now close."
-                )
+                informative_text = """
+                                    To continue, please download the new 'run_translator.bat' from the project's GitHub page and replace your old file.
+                                    <br><br>
+                                    <a href="https://github.com/Ner-Kun/Lorebook-Gemini-Translator/releases">Click here to go to the download page</a>
+                                    <br><br>
+                                    The application will now close.
+                                    """
+                msg_box.setInformativeText(informative_text)
+
+                msg_box.setTextFormat(QtGui.Qt.RichText)
+
                 msg_box.setStandardButtons(QtWidgets.QMessageBox.Ok)
                 msg_box.exec()
                 
@@ -35,6 +43,7 @@ def check_launcher_version():
         print(f"Could not check launcher version: {e}")
 
     return True
+
 
 def run_update_and_restart():
     import requests
@@ -128,13 +137,13 @@ def check_updates_and_deps():
     print("Application is up to date.")
     return False
 
-import json  # noqa: E402
-import logging  # noqa: E402
-import random  # noqa: E402
-import re  # noqa: E402
-import collections  # noqa: E402
-import time  # noqa: E402
-import copy  # noqa: E402
+import json  #noqa: E402
+import logging  #noqa: E402
+import random  #noqa: E402
+import re  #noqa: E402
+import collections  #noqa: E402
+import time  #noqa: E402
+import copy  #noqa: E402
 
 try:
     from rich.logging import RichHandler
@@ -145,12 +154,12 @@ try:
 except ImportError:
     rich_available = False
 
-from google import genai  # noqa: E402
-from google.genai import types, errors  # noqa: E402
-from google.api_core.exceptions import ResourceExhausted  # noqa: E402
+from google import genai  #noqa: E402
+from google.genai import types, errors  #noqa: E402
+from google.api_core.exceptions import ResourceExhausted  #noqa: E402
 
-from PySide6 import QtWidgets, QtCore, QtGui  # noqa: E402
-import qdarktheme  # noqa: E402
+from PySide6 import QtWidgets, QtCore, QtGui  #noqa: E402
+import qdarktheme  #noqa: E402
 
 if getattr(sys, 'frozen', False):
     APP_DIR = os.path.dirname(sys.executable)
@@ -3620,29 +3629,27 @@ class TranslatorApp(QtWidgets.QMainWindow):
         if event: 
             event.accept()
 
-
 if __name__ == '__main__':
+    if not check_launcher_version():
+        sys.exit(1)
+    needs_update = False
     try:
         needs_update = check_updates_and_deps()
     except Exception as e:
-        print(f"Initial check failed: {e}. Attempting to continue.")
+        print(f"Update check failed: {e}. Starting application as is.")
         needs_update = False
 
-    app = QtWidgets.QApplication.instance()
-    if app is None:
-        app = QtWidgets.QApplication(sys.argv)
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
 
     if needs_update:
         msg_box = QtWidgets.QMessageBox()
         msg_box.setIcon(QtWidgets.QMessageBox.Information)
         msg_box.setWindowTitle("Update Available")
-        msg_box.setText("An update for the application is available or dependencies are missing.")
-        msg_box.setInformativeText("The application will now download the necessary files and restart.\n\nClick OK to continue.")
+        msg_box.setText("An update for the application is available.")
+        msg_box.setInformativeText("The application will now download necessary files and restart.\n\nClick OK to continue.")
         msg_box.setStandardButtons(QtWidgets.QMessageBox.Ok | QtWidgets.QMessageBox.Cancel)
-        
-        user_choice = msg_box.exec()
-        
-        if user_choice == QtWidgets.QMessageBox.Ok:
+
+        if msg_box.exec() == QtWidgets.QMessageBox.Ok:
             run_update_and_restart()
         else:
             print("Update cancelled by user. Exiting.")
