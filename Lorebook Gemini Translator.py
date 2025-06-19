@@ -3685,16 +3685,24 @@ if __name__ == '__main__':
         else:
             print("Update cancelled by user. Exiting.")
             sys.exit(0)
+    else:
+        try:
+            from google import genai
+            from google.genai import types, errors
+            from google.api_core.exceptions import ResourceExhausted
+        except ImportError:
+            print("FATAL: Google GenAI library not found even after checks. Please restart.")
+            sys.exit(1)
 
     print("All checks passed. Starting main application...")
 
-    try:
-        from google import genai
-        from google.genai import types, errors
-        from google.api_core.exceptions import ResourceExhausted
-    except ImportError:
-        print("FATAL: Google GenAI library not found even after checks. Please restart.")
-        sys.exit(1)
+    # try:
+    #     from google import genai
+    #     from google.genai import types, errors
+    #     from google.api_core.exceptions import ResourceExhausted
+    # except ImportError:
+    #     print("FATAL: Google GenAI library not found even after checks. Please restart.")
+    #     sys.exit(1)
     
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
 
