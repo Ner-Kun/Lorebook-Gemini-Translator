@@ -1,0 +1,4 @@
+PySide6
+google-genai
+pyqtdarktheme-fork
+requests
