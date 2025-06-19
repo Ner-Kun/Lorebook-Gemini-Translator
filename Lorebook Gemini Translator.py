@@ -1,97 +1,74 @@
 import sys
 import os
-import json
-import logging
-import random
-import hashlib
-import re
-import collections
-import time
-import copy
 import subprocess
-import requests
-
-try:
-    import pkg_resources
-except ImportError:
-    pkg_resources = None
-
-try:
-    from rich.logging import RichHandler
-    from rich.console import Console
-    from rich.theme import Theme
-    from rich.highlighter import ReprHighlighter
-    rich_available = True
-except ImportError:
-    rich_available = False
-
-from google import genai
-from google.genai import types, errors
-from google.api_core.exceptions import ResourceExhausted
-
-from PySide6 import QtWidgets, QtCore, QtGui
-import qdarktheme
+import hashlib
 
 APP_VERSION = "0.1.0"
 LAUNCHER_NAME = "run_translator.bat"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/"
 
-def get_file_hash(filepath):
-    if not os.path.exists(filepath):
-        return ""
-    h = hashlib.sha256()
-    with open(filepath, 'rb') as f:
-        while True:
-            chunk = f.read(8192)
-            if not chunk:
-                break
-            h.update(chunk)
-    return h.hexdigest()
+def check_launcher_version():
+    if not os.path.exists(LAUNCHER_NAME):
+        print(f"WARNING: {LAUNCHER_NAME} not found. Cannot check its version.")
+        return True
+
+    try:
+        with open(LAUNCHER_NAME, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
+            if "google-generativeai" in content:
+                from PySide6 import QtWidgets
+                _ = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
+                
+                msg_box = QtWidgets.QMessageBox()
+                msg_box.setIcon(QtWidgets.QMessageBox.Critical)
+                msg_box.setWindowTitle("Launcher Out of Date")
+                msg_box.setText(f"Your launcher file ({LAUNCHER_NAME}) is outdated.")
+                msg_box.setInformativeText(
+                    "To continue, please download the new 'run_translator.bat' from the project's GitHub page and replace your old file.\n\n"
+                    "The application will now close."
+                )
+                msg_box.setStandardButtons(QtWidgets.QMessageBox.Ok)
+                msg_box.exec()
+                
+                return False
+    except Exception as e:
+        print(f"Could not check launcher version: {e}")
+
+    return True
 
 def run_update_and_restart():
-    print("Preparing to update...")
+    import requests
     
+    print("Preparing to update...")
     script_name = os.path.basename(__file__)
     new_script_path = script_name.replace('.py', '.new.py')
-    new_launcher_path = LAUNCHER_NAME + ".new"
 
     try:
         print("Downloading new application version...")
         script_url = GITHUB_BASE_URL + script_name.replace(' ', '%20')
-        response = requests.get(script_url)
+        response = requests.get(script_url, timeout=10)
         response.raise_for_status()
-        with open(new_script_path, 'wb') as f:
+        with open(new_script_path, 'wb') as f: 
             f.write(response.content)
-        print("Application downloaded.")
-
-        print(f"Downloading new {LAUNCHER_NAME}...")
-        launcher_url = GITHUB_BASE_URL + LAUNCHER_NAME
-        response = requests.get(launcher_url)
-        response.raise_for_status()
-        with open(new_launcher_path, 'wb') as f:
-            f.write(response.content)
-        print(f"{LAUNCHER_NAME} downloaded.")
 
         print("Downloading requirements.txt...")
         req_url = GITHUB_BASE_URL + 'requirements.txt'
-        response = requests.get(req_url)
+        response = requests.get(req_url, timeout=10)
         response.raise_for_status()
-        with open('requirements.txt', 'wb') as f:
+        with open('requirements.txt', 'wb') as f: 
             f.write(response.content)
-        print("Requirements.txt downloaded.")
 
     except Exception as e:
         print(f"FATAL: Could not download update files. Aborting. Error: {e}")
         return
 
     python_in_venv = os.path.join('venv', 'Scripts', 'python.exe')
-    if not os.path.exists(python_in_venv):
+    if not os.path.exists(python_in_venv): 
         python_in_venv = 'python'
 
     bat_content = f"""
                     @echo off
                     echo Starting update process... Please wait.
-
                     timeout /t 2 /nobreak > NUL
 
                     echo Installing/updating dependencies...
@@ -103,17 +80,11 @@ def run_update_and_restart():
                     if exist "{script_name}" move /Y "{script_name}" "{script_name.replace('.py', '.old.py')}"
                     if exist "{new_script_path}" move /Y "{new_script_path}" "{script_name}"
 
-                    echo Updating launcher ({LAUNCHER_NAME})...
-                    if exist "{LAUNCHER_NAME}" del "{LAUNCHER_NAME}"
-                    if exist "{new_launcher_path}" rename "{new_launcher_path}" "{LAUNCHER_NAME}"
-
                     echo Restarting application...
                     start "" "{LAUNCHER_NAME}"
-
                     ( del "%~f0" & exit )
                     """
-    
-    with open('update_and_restart.bat', 'w', encoding='utf-8') as f:
+    with open('update_and_restart.bat', 'w', encoding='utf-8') as f: 
         f.write(bat_content)
         
     print("Launching updater batch file...")
@@ -121,10 +92,11 @@ def run_update_and_restart():
     sys.exit(0)
 
 def check_updates_and_deps():
+    import requests
+    from importlib import metadata as importlib_metadata
 
     print("--- Initializing: Checking for updates and dependencies ---")
     try:
-        # 1. Проверяем версию приложения
         remote_version_req = requests.get(GITHUB_BASE_URL + 'version.txt', timeout=5)
         remote_version_req.raise_for_status()
         remote_version = remote_version_req.text.strip()
@@ -133,31 +105,18 @@ def check_updates_and_deps():
             print(f"Script update found! Local: {APP_VERSION}, Remote: {remote_version}")
             return True
 
-        remote_launcher_req = requests.get(GITHUB_BASE_URL + LAUNCHER_NAME, timeout=5)
-        remote_launcher_req.raise_for_status()
-        remote_launcher_hash = hashlib.sha256(remote_launcher_req.content).hexdigest()
-        local_launcher_hash = get_file_hash(LAUNCHER_NAME)
-
-        if remote_launcher_hash != local_launcher_hash:
-            print(f"Launcher ({LAUNCHER_NAME}) update found!")
-            return True
-
-        if pkg_resources is None:
-            print("pkg_resources not available. Forcing dependency check via update.")
-            return True
-
         print("Checking dependencies...")
         req_response = requests.get(GITHUB_BASE_URL + 'requirements.txt', timeout=5)
         req_response.raise_for_status()
-        
-        required = pkg_resources.parse_requirements(req_response.text)
-        
-        try:
-            for req in required:
-                pkg_resources.require(str(req))
-        except (pkg_resources.DistributionNotFound, pkg_resources.VersionConflict) as e:
-            print(f"Dependency issue found: {e}")
-            return True
+
+        required_packages = [line.strip().lower() for line in req_response.text.splitlines() if line.strip()]
+
+        installed_packages = {dist.metadata['name'].lower() for dist in importlib_metadata.distributions()}
+
+        for req_pkg in required_packages:
+            if req_pkg not in installed_packages:
+                print(f"Dependency issue found: Missing package '{req_pkg}'")
+                return True
 
     except requests.RequestException as e:
         print(f"Could not check for updates (network error): {e}")
@@ -168,6 +127,30 @@ def check_updates_and_deps():
 
     print("Application is up to date.")
     return False
+
+import json  # noqa: E402
+import logging  # noqa: E402
+import random  # noqa: E402
+import re  # noqa: E402
+import collections  # noqa: E402
+import time  # noqa: E402
+import copy  # noqa: E402
+
+try:
+    from rich.logging import RichHandler
+    from rich.console import Console
+    from rich.theme import Theme
+    from rich.highlighter import ReprHighlighter
+    rich_available = True
+except ImportError:
+    rich_available = False
+
+from google import genai  # noqa: E402
+from google.genai import types, errors  # noqa: E402
+from google.api_core.exceptions import ResourceExhausted  # noqa: E402
+
+from PySide6 import QtWidgets, QtCore, QtGui  # noqa: E402
+import qdarktheme  # noqa: E402
 
 if getattr(sys, 'frozen', False):
     APP_DIR = os.path.dirname(sys.executable)
