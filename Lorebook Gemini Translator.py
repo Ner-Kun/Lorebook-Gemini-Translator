@@ -152,7 +152,7 @@ def run_update_and_restart():
 
 def check_updates_and_deps():
     import requests
-    from importlib import metadata as importlib_metadata
+    import importlib
 
     print("--- Initializing: Checking for updates and dependencies ---")
     try:
@@ -164,20 +164,21 @@ def check_updates_and_deps():
             print(f"Script update found! Local: {APP_VERSION}, Remote: {remote_version}")
             return True
 
-        print("Checking dependencies...")
-        req_response = requests.get(GITHUB_BASE_URL + 'requirements.txt', timeout=5)
-        req_response.raise_for_status()
-        
+        print("Checking core dependencies...")
 
-        required_packages = {line.strip().lower().replace("_", "-") for line in req_response.text.splitlines() if line.strip()}
+        required_imports = {
+            "google.genai": "google-genai",
+            "rich": "rich",
+            "qdarktheme": "pyqtdarktheme-fork",
+            "requests": "requests"
+        }
 
-        installed_packages = {dist.metadata['name'].lower().replace("_", "-") for dist in importlib_metadata.distributions()}
-
-        missing_packages = required_packages - installed_packages
-        
-        if missing_packages:
-            print(f"Dependency issue found: Missing package(s): {', '.join(missing_packages)}")
-            return True
+        for module_name, package_name in required_imports.items():
+            try:
+                importlib.import_module(module_name)
+            except ImportError:
+                print(f"Dependency issue found: Missing package '{package_name}' (cannot import '{module_name}')")
+                return True
 
     except requests.RequestException as e:
         print(f"Could not check for updates (network error): {e}")
