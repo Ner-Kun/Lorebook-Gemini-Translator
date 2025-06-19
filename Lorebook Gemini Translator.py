@@ -181,30 +181,6 @@ def check_updates_and_deps():
     print("Application is up to date.")
     return False
 
-# import json  #noqa: E402
-# import logging  #noqa: E402
-# import random  #noqa: E402
-# import re  #noqa: E402
-# import collections  #noqa: E402
-# import time  #noqa: E402
-# import copy  #noqa: E402
-
-# try:
-#     from rich.logging import RichHandler
-#     from rich.console import Console
-#     from rich.theme import Theme
-#     from rich.highlighter import ReprHighlighter
-#     rich_available = True
-# except ImportError:
-#     rich_available = False
-
-# from google import genai  #noqa: E402
-# from google.genai import types, errors  #noqa: E402
-# from google.api_core.exceptions import ResourceExhausted  #noqa: E402
-
-# from PySide6 import QtWidgets, QtCore, QtGui  #noqa: E402
-# import qdarktheme  #noqa: E402
-
 if getattr(sys, 'frozen', False):
     APP_DIR = os.path.dirname(sys.executable)
 elif __file__:
@@ -3674,8 +3650,10 @@ class TranslatorApp(QtWidgets.QMainWindow):
             event.accept()
 
 if __name__ == '__main__':
+
     if not check_launcher_version():
         sys.exit(1)
+
     needs_update = False
     try:
         needs_update = check_updates_and_deps()
@@ -3683,18 +3661,14 @@ if __name__ == '__main__':
         print(f"Update check failed: {e}. Starting application as is.")
         needs_update = False
 
-    from google import genai
-    from google.genai import types, errors
-    from google.api_core.exceptions import ResourceExhausted
-
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
-
     if needs_update:
+        app_for_msgbox = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
+
         msg_box = QtWidgets.QMessageBox()
         msg_box.setIcon(QtWidgets.QMessageBox.Information)
-        msg_box.setWindowTitle("Update Available")
-        msg_box.setText("An update for the application is available.")
-        msg_box.setInformativeText("The application will now download necessary files and restart.\n\nClick OK to continue.")
+        msg_box.setWindowTitle("Update Required")
+        msg_box.setText("An update or new dependencies are required for the application.")
+        msg_box.setInformativeText("The application will now download the necessary files and restart.\n\nClick OK to continue.")
         msg_box.setStandardButtons(QtWidgets.QMessageBox.Ok | QtWidgets.QMessageBox.Cancel)
 
         if msg_box.exec() == QtWidgets.QMessageBox.Ok:
@@ -3702,6 +3676,18 @@ if __name__ == '__main__':
         else:
             print("Update cancelled by user. Exiting.")
             sys.exit(0)
+
+    print("All checks passed. Starting main application...")
+
+    try:
+        from google import genai
+        from google.genai import types, errors
+        from google.api_core.exceptions import ResourceExhausted
+    except ImportError:
+        print("FATAL: Google GenAI library not found even after checks. Please restart.")
+        sys.exit(1)
+    
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
 
     if rich_available:
         custom_theme = Theme({ "log.time": "#29e97c", "logging.level.debug": "#11d9e7", "logging.level.info": "#0505f3", "logging.level.warning": "#FF00FF", "logging.level.error": "#FF0000", "logging.level.critical": "#FA8072"})
@@ -3741,15 +3727,16 @@ if __name__ == '__main__':
     else: 
         app.setWindowIcon(QtGui.QIcon.fromTheme("applications-education-translation", QtGui.QIcon.fromTheme("accessories-dictionary")))
 
-    try:
-        app.setStyleSheet(qdarktheme.load_stylesheet("dark"))
-        logger.info("Applied qdarktheme (dark).")
-        tooltip_stylesheet = """ QToolTip {color: #e0e0e0; background-color: #3c3c3c; border: 1px solid #555555; padding: 5px; border-radius: 4px;} """
-        current_stylesheet = app.styleSheet()
-        app.setStyleSheet(current_stylesheet + tooltip_stylesheet)
-        logger.info("Applied custom QToolTip stylesheet for dark theme.")
-    except Exception as e_theme: 
-        logger.warning(f"pyqtdarktheme not found or failed: {e_theme}. Using default OS theme.")
+    if qdarktheme:
+        try:
+            app.setStyleSheet(qdarktheme.load_stylesheet("dark"))
+            logger.info("Applied qdarktheme (dark).")
+            tooltip_stylesheet = """ QToolTip {color: #e0e0e0; background-color: #3c3c3c; border: 1px solid #555555; padding: 5px; border-radius: 4px;} """
+            current_stylesheet = app.styleSheet()
+            app.setStyleSheet(current_stylesheet + tooltip_stylesheet)
+            logger.info("Applied custom QToolTip stylesheet for dark theme.")
+        except Exception as e_theme: 
+            logger.warning(f"pyqtdarktheme failed: {e_theme}. Using default OS theme.")
 
     if not current_settings.get("api_keys"):
         logger.warning("Gemini API Keys not found. Prompting user.")
