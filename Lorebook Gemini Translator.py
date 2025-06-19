@@ -10,7 +10,11 @@ import time
 import copy
 import subprocess
 import requests
-import pkg_resources
+
+try:
+    import pkg_resources
+except ImportError:
+    pkg_resources = None
 
 try:
     from rich.logging import RichHandler
@@ -29,13 +33,27 @@ from PySide6 import QtWidgets, QtCore, QtGui
 import qdarktheme
 
 APP_VERSION = "0.1.0"
+LAUNCHER_NAME = "run_translator.bat"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/"
+
+def get_file_hash(filepath):
+    if not os.path.exists(filepath):
+        return ""
+    h = hashlib.sha256()
+    with open(filepath, 'rb') as f:
+        while True:
+            chunk = f.read(8192)
+            if not chunk:
+                break
+            h.update(chunk)
+    return h.hexdigest()
 
 def run_update_and_restart():
     print("Preparing to update...")
     
     script_name = os.path.basename(__file__)
     new_script_path = script_name.replace('.py', '.new.py')
+    new_launcher_path = LAUNCHER_NAME + ".new"
 
     try:
         print("Downloading new application version...")
@@ -45,10 +63,15 @@ def run_update_and_restart():
         with open(new_script_path, 'wb') as f:
             f.write(response.content)
         print("Application downloaded.")
-    except Exception as e:
-        print(f"FATAL: Could not download the main application file. Aborting update. Error: {e}")
-        return
-    try:
+
+        print(f"Downloading new {LAUNCHER_NAME}...")
+        launcher_url = GITHUB_BASE_URL + LAUNCHER_NAME
+        response = requests.get(launcher_url)
+        response.raise_for_status()
+        with open(new_launcher_path, 'wb') as f:
+            f.write(response.content)
+        print(f"{LAUNCHER_NAME} downloaded.")
+
         print("Downloading requirements.txt...")
         req_url = GITHUB_BASE_URL + 'requirements.txt'
         response = requests.get(req_url)
@@ -56,65 +79,84 @@ def run_update_and_restart():
         with open('requirements.txt', 'wb') as f:
             f.write(response.content)
         print("Requirements.txt downloaded.")
+
     except Exception as e:
-        print(f"Warning: Could not download requirements.txt. Will use existing. Error: {e}")
+        print(f"FATAL: Could not download update files. Aborting. Error: {e}")
+        return
 
     python_in_venv = os.path.join('venv', 'Scripts', 'python.exe')
     if not os.path.exists(python_in_venv):
         python_in_venv = 'python'
 
     bat_content = f"""
-                @echo off
-                echo Starting update process... Please wait.
+                    @echo off
+                    echo Starting update process... Please wait.
 
-                timeout /t 2 /nobreak > NUL
+                    timeout /t 2 /nobreak > NUL
 
-                echo Installing/updating dependencies...
-                call venv\\Scripts\\activate.bat
-                pip install -r requirements.txt --upgrade
-                call venv\\Scripts\\deactivate.bat
+                    echo Installing/updating dependencies...
+                    call venv\\Scripts\\activate.bat
+                    pip install -r requirements.txt --upgrade
+                    call venv\\Scripts\\deactivate.bat
 
-                echo Updating application files...
-                if exist "{script_name}" move /Y "{script_name}" "{script_name.replace('.py', '.old.py')}"
-                if exist "{new_script_path}" move /Y "{new_script_path}" "{script_name}"
+                    echo Updating application script...
+                    if exist "{script_name}" move /Y "{script_name}" "{script_name.replace('.py', '.old.py')}"
+                    if exist "{new_script_path}" move /Y "{new_script_path}" "{script_name}"
 
-                echo Restarting application...
-                start "" "{python_in_venv}" "{script_name}"
+                    echo Updating launcher ({LAUNCHER_NAME})...
+                    if exist "{LAUNCHER_NAME}" del "{LAUNCHER_NAME}"
+                    if exist "{new_launcher_path}" rename "{new_launcher_path}" "{LAUNCHER_NAME}"
 
-                ( del "%~f0" & exit )
-                """
+                    echo Restarting application...
+                    start "" "{LAUNCHER_NAME}"
+
+                    ( del "%~f0" & exit )
+                    """
     
     with open('update_and_restart.bat', 'w', encoding='utf-8') as f:
         f.write(bat_content)
-
+        
     print("Launching updater batch file...")
     subprocess.Popen(['update_and_restart.bat'], shell=True)
     sys.exit(0)
 
 def check_updates_and_deps():
+
     print("--- Initializing: Checking for updates and dependencies ---")
     try:
-        remote_version = requests.get(GITHUB_BASE_URL + 'version.txt').text.strip()
+        # 1. Проверяем версию приложения
+        remote_version_req = requests.get(GITHUB_BASE_URL + 'version.txt', timeout=5)
+        remote_version_req.raise_for_status()
+        remote_version = remote_version_req.text.strip()
+        
         if remote_version > APP_VERSION:
-            print(f"Update found! Local: {APP_VERSION}, Remote: {remote_version}")
+            print(f"Script update found! Local: {APP_VERSION}, Remote: {remote_version}")
+            return True
+
+        remote_launcher_req = requests.get(GITHUB_BASE_URL + LAUNCHER_NAME, timeout=5)
+        remote_launcher_req.raise_for_status()
+        remote_launcher_hash = hashlib.sha256(remote_launcher_req.content).hexdigest()
+        local_launcher_hash = get_file_hash(LAUNCHER_NAME)
+
+        if remote_launcher_hash != local_launcher_hash:
+            print(f"Launcher ({LAUNCHER_NAME}) update found!")
+            return True
+
+        if pkg_resources is None:
+            print("pkg_resources not available. Forcing dependency check via update.")
             return True
 
         print("Checking dependencies...")
-        req_response = requests.get(GITHUB_BASE_URL + 'requirements.txt')
+        req_response = requests.get(GITHUB_BASE_URL + 'requirements.txt', timeout=5)
         req_response.raise_for_status()
         
-        required_packages = req_response.text.strip().splitlines()
-        installed_packages = {pkg.key for pkg in pkg_resources.working_set}
+        required = pkg_resources.parse_requirements(req_response.text)
         
-        missing = False
-        for req in required_packages:
-            package_name = req.split('==')[0].split('>')[0].split('<')[0].strip().lower()
-            if package_name not in installed_packages:
-                print(f"Missing dependency: {req}")
-                missing = True
-        
-        if missing:
-            print("Missing or outdated dependencies found.")
+        try:
+            for req in required:
+                pkg_resources.require(str(req))
+        except (pkg_resources.DistributionNotFound, pkg_resources.VersionConflict) as e:
+            print(f"Dependency issue found: {e}")
             return True
 
     except requests.RequestException as e:

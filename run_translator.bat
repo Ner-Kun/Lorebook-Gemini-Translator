@@ -1,64 +1,60 @@
 @echo off
 cd /d "%~dp0"
 
-set "SCRIPT_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/Lorebook%%20Gemini%%20Translator.py"
-set "ICON_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/icon.ico"
-set "SCRIPT_NAME=Lorebook Gemini Translator.py"
-set "ICON_NAME=icon.ico"
+set "VENV_DIR=venv"
+set "SCRIPT_NAME=Lorebook Gemini Translator Dev.py"
 
 where python >nul 2>nul
 if errorlevel 1 (
-    echo Error: Python not found in PATH. Please install Python 3.9+ or add python.exe to your PATH.
+    echo Error: Python not found in PATH. Please install Python 3.9+
     pause
     exit /b 1
 )
 
-if not exist "venv\Scripts\activate.bat" (
+if not exist "%VENV_DIR%\Scripts\activate.bat" (
     echo Creating virtual environment...
-    python -m venv venv
+    python -m venv %VENV_DIR%
     if errorlevel 1 (
-        echo Failed to create virtual environment. Check write permissions in "%~dp0".
+        echo Failed to create virtual environment.
         pause
         exit /b 1
     )
-    echo Virtual environment created.
-
-    echo Activating virtual environment and installing dependencies...
-    call venv\Scripts\activate.bat
-    python -m pip install --upgrade pip
-    pip install PySide6 google-generativeai pyqtdarktheme-fork
+    
+    echo.
+    echo Activating environment for the first time to install bootstrap dependencies...
+    call "%VENV_DIR%\Scripts\activate.bat"
+    
+    echo Installing core libraries (PySide6, requests)...
+    python -m pip install --upgrade pip setuptools
+    pip install PySide6 requests
     if errorlevel 1 (
-        echo Dependency installation failed. Check network connection and PyPI access.
+        echo Core dependency installation failed. Check your internet connection.
         pause
         exit /b 1
     )
-    echo Dependencies installed.
-    call venv\Scripts\deactivate.bat
-) else (
-    echo Virtual environment already exists. Skipping creation.
+    
+    echo Core libraries installed.
+    call "%VENV_DIR%\Scripts\deactivate.bat"
 )
 
-echo Downloading the latest version...
-curl -L -o "%SCRIPT_NAME%" "%SCRIPT_URL%"
-curl -L -o "%ICON_NAME%" "%ICON_URL%" 2>nul
-if errorlevel 1 (
-    echo Failed to download %SCRIPT_NAME%. Check URL: %SCRIPT_URL% and internet connection.
-    pause
-    exit /b 1
+if not exist "%SCRIPT_NAME%" (
+    echo Downloading the application for the first time...
+    set "SCRIPT_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/Lorebook%%20Gemini%%20Translator.py"
+    curl -L -o "%SCRIPT_NAME%" "%SCRIPT_URL%"
+    if errorlevel 1 (
+        echo Failed to download the application. Check your internet connection.
+        pause
+        exit /b 1
+    )
 )
-echo %SCRIPT_NAME% downloaded successfully.
 
-
-echo Activating virtual environment and launching the application...
-call venv\Scripts\activate.bat
-
+echo.
+echo Launching the application...
+call "%VENV_DIR%\Scripts\activate.bat"
 
 echo -------------------------------------------------------------------
-echo RUNNING: python "%~dp0%SCRIPT_NAME%"
+python "%SCRIPT_NAME%"
 echo -------------------------------------------------------------------
 
-python "%~dp0%SCRIPT_NAME%"
-echo Return code: %errorlevel%
-
-call venv\Scripts\deactivate.bat
+call "%VENV_DIR%\Scripts\deactivate.bat"
 pause
