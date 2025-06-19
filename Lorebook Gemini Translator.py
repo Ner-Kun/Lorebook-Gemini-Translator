@@ -144,6 +144,7 @@ def run_update_and_restart():
     subprocess.Popen(['update_and_restart.bat'], shell=True)
     sys.exit(0)
 
+
 def check_updates_and_deps():
     import requests
     from importlib import metadata as importlib_metadata
@@ -161,15 +162,17 @@ def check_updates_and_deps():
         print("Checking dependencies...")
         req_response = requests.get(GITHUB_BASE_URL + 'requirements.txt', timeout=5)
         req_response.raise_for_status()
+        
 
-        required_packages = [line.strip().lower() for line in req_response.text.splitlines() if line.strip()]
+        required_packages = {line.strip().lower().replace("_", "-") for line in req_response.text.splitlines() if line.strip()}
 
-        installed_packages = {dist.metadata['name'].lower() for dist in importlib_metadata.distributions()}
+        installed_packages = {dist.metadata['name'].lower().replace("_", "-") for dist in importlib_metadata.distributions()}
 
-        for req_pkg in required_packages:
-            if req_pkg not in installed_packages:
-                print(f"Dependency issue found: Missing package '{req_pkg}'")
-                return True
+        missing_packages = required_packages - installed_packages
+        
+        if missing_packages:
+            print(f"Dependency issue found: Missing package(s): {', '.join(missing_packages)}")
+            return True
 
     except requests.RequestException as e:
         print(f"Could not check for updates (network error): {e}")
@@ -180,6 +183,7 @@ def check_updates_and_deps():
 
     print("Application is up to date.")
     return False
+
 
 if getattr(sys, 'frozen', False):
     APP_DIR = os.path.dirname(sys.executable)
