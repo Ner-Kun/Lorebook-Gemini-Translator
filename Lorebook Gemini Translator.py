@@ -2,10 +2,54 @@ import sys
 import os
 import subprocess
 import hashlib
+import json
+import logging
+import random
+import re
+import collections
+import time
+import copy
+
+try:
+    from rich.logging import RichHandler
+    from rich.console import Console
+    from rich.theme import Theme
+    from rich.highlighter import ReprHighlighter
+    rich_available = True
+except ImportError:
+    rich_available = False
+
+from PySide6 import QtWidgets, QtCore, QtGui
+import qdarktheme
 
 APP_VERSION = "0.1.0"
 LAUNCHER_NAME = "run_translator.bat"
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/"
+
+def run_startup_checks():
+    if not check_launcher_version():
+        return False
+
+    try:
+        if check_updates_and_deps():
+            from PySide6 import QtWidgets
+            _ = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
+            
+            msg_box = QtWidgets.QMessageBox()
+            msg_box.setIcon(QtWidgets.QMessageBox.Information)
+            msg_box.setWindowTitle("Update Available")
+            msg_box.setText("An update for the application is available.")
+            msg_box.setInformativeText("The application will now download necessary files and restart.\n\nClick OK to continue.")
+            msg_box.setStandardButtons(QtWidgets.QMessageBox.Ok | QtWidgets.QMessageBox.Cancel)
+
+            if msg_box.exec() == QtWidgets.QMessageBox.Ok:
+                run_update_and_restart()
+            else:
+                print("Update cancelled by user. Exiting.")
+                return False
+    except Exception as e:
+        print(f"Update check failed: {e}. Starting application as is.")
+    return True
 
 
 def check_launcher_version():
@@ -137,29 +181,29 @@ def check_updates_and_deps():
     print("Application is up to date.")
     return False
 
-import json  #noqa: E402
-import logging  #noqa: E402
-import random  #noqa: E402
-import re  #noqa: E402
-import collections  #noqa: E402
-import time  #noqa: E402
-import copy  #noqa: E402
+# import json  #noqa: E402
+# import logging  #noqa: E402
+# import random  #noqa: E402
+# import re  #noqa: E402
+# import collections  #noqa: E402
+# import time  #noqa: E402
+# import copy  #noqa: E402
 
-try:
-    from rich.logging import RichHandler
-    from rich.console import Console
-    from rich.theme import Theme
-    from rich.highlighter import ReprHighlighter
-    rich_available = True
-except ImportError:
-    rich_available = False
+# try:
+#     from rich.logging import RichHandler
+#     from rich.console import Console
+#     from rich.theme import Theme
+#     from rich.highlighter import ReprHighlighter
+#     rich_available = True
+# except ImportError:
+#     rich_available = False
 
-from google import genai  #noqa: E402
-from google.genai import types, errors  #noqa: E402
-from google.api_core.exceptions import ResourceExhausted  #noqa: E402
+# from google import genai  #noqa: E402
+# from google.genai import types, errors  #noqa: E402
+# from google.api_core.exceptions import ResourceExhausted  #noqa: E402
 
-from PySide6 import QtWidgets, QtCore, QtGui  #noqa: E402
-import qdarktheme  #noqa: E402
+# from PySide6 import QtWidgets, QtCore, QtGui  #noqa: E402
+# import qdarktheme  #noqa: E402
 
 if getattr(sys, 'frozen', False):
     APP_DIR = os.path.dirname(sys.executable)
@@ -3638,6 +3682,10 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"Update check failed: {e}. Starting application as is.")
         needs_update = False
+
+    from google import genai
+    from google.genai import types, errors
+    from google.api_core.exceptions import ResourceExhausted
 
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
 
