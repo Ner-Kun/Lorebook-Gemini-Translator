@@ -120,30 +120,35 @@ def run_update_and_restart():
         python_in_venv = 'python'
 
     bat_content = f"""
-                    @echo off
-                    echo Starting update process... Please wait.
-                    timeout /t 2 /nobreak > NUL
+                @echo off
+                echo Starting update process... Please wait.
+                timeout /t 2 /nobreak > NUL
 
-                    echo Installing/updating dependencies...
-                    call venv\\Scripts\\activate.bat
-                    pip install -r requirements.txt --upgrade
-                    call venv\\Scripts\\deactivate.bat
+                echo Installing/updating dependencies...
+                call venv\\Scripts\\activate.bat
 
-                    echo Updating application script...
-                    if exist "{script_name}" move /Y "{script_name}" "{script_name.replace('.py', '.old.py')}"
-                    if exist "{new_script_path}" move /Y "{new_script_path}" "{script_name}"
+                echo Uninstalling old google-generativeai package (if it exists)...
+                pip uninstall google-generativeai -y
 
-                    echo Restarting application...
-                    start "" "{LAUNCHER_NAME}"
-                    ( del "%~f0" & exit )
-                    """
+                echo Installing new dependencies from requirements.txt...
+                pip install -r requirements.txt --upgrade
+
+                call venv\\Scripts\\deactivate.bat
+
+                echo Updating application script...
+                if exist "{script_name}" move /Y "{script_name}" "{script_name.replace('.py', '.old.py')}"
+                if exist "{new_script_path}" move /Y "{new_script_path}" "{script_name}"
+
+                echo Restarting application...
+                start "" "{LAUNCHER_NAME}"
+                ( del "%~f0" & exit )
+                """
     with open('update_and_restart.bat', 'w', encoding='utf-8') as f: 
         f.write(bat_content)
         
     print("Launching updater batch file...")
     subprocess.Popen(['update_and_restart.bat'], shell=True)
     sys.exit(0)
-
 
 def check_updates_and_deps():
     import requests
