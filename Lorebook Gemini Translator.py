@@ -230,10 +230,10 @@ chcp 65001 > nul
 set PYTHONIOENCODING=utf-8
 
 set "BASE_DIR=%~dp0"
-set "VENV_PY=%BASE_DIR%venv\Scripts\python.exe"
+set "VENV_PY=%BASE_DIR%venv\\Scripts\\python.exe"
 set "PIP=%VENV_PY% -m pip"
 
-%PIP% --version | findstr /I "%BASE_DIR%venv" >nul
+%PIP% --version | findstr /I "venv" >nul
 if errorlevel 1 (
     echo ERROR: pip does not point to the local venv. Cancel the update!
     pause
