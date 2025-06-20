@@ -1,75 +1,72 @@
 import sys
 import os
-try:
-    show_dialog = False
-    error_reason = ""
+def _show_manual_update_dialog(reason):
+    print(f"INFO: Manual update required. Reason: {reason}")
+    
+    from PySide6 import QtWidgets, QtCore, QtGui
 
+    app = QtWidgets.QApplication.instance()
+    if not app:
+        app = QtWidgets.QApplication(sys.argv)
+
+    dialog = QtWidgets.QMessageBox()
+    dialog.setIcon(QtWidgets.QMessageBox.Critical)
+    dialog.setWindowTitle("Update Required")
+    dialog.setTextFormat(QtCore.Qt.RichText)
+    dialog.setText(
+        "<h2>Your launcher (run_translator.bat) is outdated!</h2>"
+        "<p>To ensure the program works correctly, you MUST update your launcher file.</p>"
+        "<p>Please download the latest version from GitHub:</p>"
+        "<p><a href='https://github.com/Ner-Kun/Lorebook-Gemini-Translator/releases'>Click here to open the download page</a></p>"
+        "<p>Replace your old <b>run_translator.bat</b> with the new one you downloaded.</p>"
+        "<p>The application will now close.</p>")
+    
     try:
-        import google.generativeai  #type: ignore #noqa: F401
-        show_dialog = True
-        error_reason = "An outdated library ‘google.generativeai’ has been detected."
-    except ImportError:
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        icon_path = os.path.join(base_path, 'icon.ico')
+        if os.path.exists(icon_path):
+            dialog.setWindowIcon(QtGui.QIcon(icon_path))
+    except Exception:
         pass
 
-    if not show_dialog:
-        launcher_name = "run_translator.bat"
-        launcher_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), launcher_name)
-        
-        if os.path.exists(launcher_path):
-            try:
-                with open(launcher_path, 'r', encoding='utf-8', errors='ignore') as f:
-                    if 'google-generativeai' in f.read():
-                        show_dialog = True
-                        error_reason = f"The ‘{launcher_name}’ launch file contains outdated commands."
-            except Exception as e:
-                print(f"WARNING: Unable to read file {launcher_name} for verification: {e}")
-        else:
-            pass
-
-    if show_dialog:
-        print(f"INFO: Update required. Reason: {error_reason}")
-        
-        from PySide6 import QtWidgets, QtCore, QtGui
-
-        app = QtWidgets.QApplication(sys.argv)
-        
-        dialog = QtWidgets.QMessageBox()
-        dialog.setIcon(QtWidgets.QMessageBox.Critical)
-        dialog.setWindowTitle("run_translator.bat Update Required")
-        dialog.setTextFormat(QtCore.Qt.RichText)
-        dialog.setText(
-            "<h2>Your run_translator.bat is outdated!</h2>"
-            "<p>To ensure the program works correctly, you need to update run_translator file.</p>"
-            "<p>Please download the latest version from GitHub:</p>"
-            "<p><a href='https://github.com/Ner-Kun/Lorebook-Gemini-Translator/releases'>Click here to open the download page</a></p>"
-            "<p>Replace your old <b>run_translator.bat</b> with the new one you downloaded.</p>")
-        
-        try:
-            base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-            icon_path = os.path.join(base_path, 'icon.ico')
-            if os.path.exists(icon_path):
-                dialog.setWindowIcon(QtGui.QIcon(icon_path))
-        except Exception:
-            pass
-
-        dialog.exec()
-        sys.exit(1)
-
-except Exception as e:
-    print(f"CRITICAL ERROR during update check: {e}")
-    input("Press Enter to exit...")
+    dialog.exec()
     sys.exit(1)
 
-import requests
-import subprocess
-import json
-import logging
-import random
-import hashlib
-import re
-import collections
-import time
-import copy
+
+def perform_startup_verification():
+    launcher_name = "run_translator.bat"
+    launcher_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), launcher_name)
+    
+    if os.path.exists(launcher_path):
+        try:
+            with open(launcher_path, 'r', encoding='utf-8', errors='ignore') as f:
+                if 'google-generativeai' in f.read():
+                    _show_manual_update_dialog(f"The '{launcher_name}' launch file contains outdated commands.")
+        except Exception as e:
+            print(f"WARNING: Unable to read file {launcher_name} for verification: {e}")
+    try:
+        import google.generativeai  #type: ignore #noqa: F401
+
+        print("INFO: Outdated library detected. Proposing automatic fix...")
+        return True
+
+    except ImportError:
+        return False
+    except Exception as e:
+        print(f"CRITICAL ERROR during library check: {e}")
+        input("Press Enter to exit...")
+        sys.exit(1)
+
+import requests  #noqa: E402
+import subprocess  #noqa: E402
+import json  #noqa: E402
+import logging  #noqa: E402
+import random  #noqa: E402
+import hashlib  #noqa: E402
+import re  #noqa: E402
+import collections  #noqa: E402
+import time  #noqa: E402
+import copy  #noqa: E402
 
 try:
     from rich.logging import RichHandler
@@ -80,12 +77,12 @@ try:
 except ImportError:
     rich_available = False
 
-from google import genai
-from google.genai import types, errors
-from google.api_core.exceptions import ResourceExhausted
+from google import genai  #noqa: E402
+from google.genai import types, errors  #noqa: E402
+from google.api_core.exceptions import ResourceExhausted  #noqa: E402
 
-from PySide6 import QtWidgets, QtCore, QtGui
-import qdarktheme
+from PySide6 import QtWidgets, QtCore, QtGui  #noqa: E402
+import qdarktheme  #noqa: E402
 
 APP_VERSION = "0.1.0"
 if getattr(sys, 'frozen', False):
@@ -131,7 +128,8 @@ default_settings = {
 current_settings = default_settings.copy()
 fh = None
 
-def check_for_updates():
+def check_for_updates(force_update=False):
+
     # VERSION_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/version.txt"
     # PY_FILE_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/Lorebook%%20Gemini%%20Translator.py"
     # REQUIREMENTS_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/requirements.txt"
@@ -139,24 +137,32 @@ def check_for_updates():
 
     VERSION_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/version.txt"
     PY_FILE_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/Lorebook%%20Gemini%%20Translator.py"
-    REQUIREMENTS_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/requirements.txt"
-    LAUNCHER_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/run_translator.bat"
+    REQUIREMENTS_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/requirements.txt"
+    LAUNCHER_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/run_translator.bat"
 
     try:
         logger.info("Checking for updates...")
-        response = requests.get(VERSION_URL, timeout=5)
-        response.raise_for_status()
-        latest_version = response.text.strip()
-        
-        if latest_version > APP_VERSION:
-            logger.info(f"New version available: {latest_version} (current: {APP_VERSION})")
+        update_reason = ""
 
+        if force_update:
+            update_reason = "An outdated library was found and needs to be fixed automatically."
+        else:
+            response = requests.get(VERSION_URL, timeout=5)
+            response.raise_for_status()
+            latest_version = response.text.strip()
+            
+            if latest_version > APP_VERSION:
+                update_reason = f"A new version ({latest_version}) of the translator is available!"
+
+        if update_reason:
+            logger.info(f"Update triggered. Reason: {update_reason}")
+            
             from PySide6 import QtWidgets
             msg_box = QtWidgets.QMessageBox()
             msg_box.setIcon(QtWidgets.QMessageBox.Information)
-            msg_box.setWindowTitle("Update Available")
-            msg_box.setText(f"A new version ({latest_version}) of the translator is available!")
-            msg_box.setInformativeText("Do you want to download and install it now?\nThe application will restart.")
+            msg_box.setWindowTitle("Update Required")
+            msg_box.setText(update_reason)
+            msg_box.setInformativeText("Do you want to run the updater now?\nThe application will restart.")
             msg_box.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
             msg_box.setDefaultButton(QtWidgets.QMessageBox.Yes)
             
@@ -182,7 +188,7 @@ def check_for_updates():
                                         )
 
                                         echo.
-                                        echo [2/5] Analyzing installed packages...
+                                        echo [2/5] Analyzing installed packages to find outdated ones...
                                         pip freeze > installed.txt
                                         copy nul candidates_for_deletion.txt >nul
                                         copy nul to_uninstall_final.txt >nul
@@ -213,12 +219,12 @@ def check_for_updates():
                                         echo.
                                         echo [4/5] Updating application files...
                                         echo    - Backing up old application file...
-                                        ren "Lorebook Gemini Translator.py" "Lorebook Gemini Translator_v{APP_VERSION}.py.bak"
+                                        ren "Lorebook Gemini Translator Dev.py" "Lorebook Gemini Translator Dev_v{APP_VERSION}.py.bak"
                                         echo    - Downloading new application file...
-                                        curl -L -o "Lorebook Gemini Translator.py" "{PY_FILE_URL}"
+                                        curl -L -o "Lorebook Gemini Translator Dev.py" "{PY_FILE_URL}"
                                         if %errorlevel% neq 0 (
                                             echo ERROR: Failed to download the new application file.
-                                            echo Please restore the backup file manually.
+                                            echo Please restore the backup file manually from .bak file.
                                             pause
                                             exit /b
                                         )
@@ -253,7 +259,7 @@ def check_for_updates():
             logger.info("Application is up to date.")
             
     except requests.exceptions.RequestException as e:
-        logger.warning(f"Could not check for updates: {e}")
+        logger.warning(f"Could not check for updates (network error): {e}")
     except Exception as e:
         logger.error(f"An unexpected error occurred during the update check: {e}", exc_info=True)
 
@@ -3711,6 +3717,8 @@ if __name__ == '__main__':
         logging.info("The «rich» library was not found. Logs will be displayed in standard format.")
 
     load_settings()
+
+    needs_auto_fix = perform_startup_verification()
 
     check_for_updates()
 
