@@ -77,9 +77,9 @@ try:
 except ImportError:
     rich_available = False
 
-from google import genai  #noqa: E402
-from google.genai import types, errors  #noqa: E402
-from google.api_core.exceptions import ResourceExhausted  #noqa: E402
+# from google import genai  #noqa: E402
+# from google.genai import types, errors  #noqa: E402
+# from google.api_core.exceptions import ResourceExhausted  #noqa: E402
 
 from PySide6 import QtWidgets, QtCore, QtGui  #noqa: E402
 import qdarktheme  #noqa: E402
@@ -3721,6 +3721,10 @@ if __name__ == '__main__':
     needs_auto_fix = perform_startup_verification()
 
     check_for_updates()
+
+    from google import genai  #noqa: E402
+    from google.genai import types, errors  #noqa: E402
+    from google.api_core.exceptions import ResourceExhausted  #noqa: E402
 
     app_log_level_str = current_settings.get("log_level", "INFO").upper()
     app_log_level_int = getattr(logging, app_log_level_str, logging.INFO)
