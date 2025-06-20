@@ -253,6 +253,7 @@ echo(
 echo [2/4] Finding obsolete top-level packages...
 pip list --not-required --format=freeze > installed_toplevel.txt
 copy nul to_uninstall.txt >nul
+
 FOR /F "tokens=1 delims==" %%i IN (installed_toplevel.txt) DO (
     findstr /L /I /X "%%i" requirements.new.txt >nul
     IF errorlevel 1 (
@@ -289,7 +290,7 @@ del requirements.new.txt >nul
 echo    - Relaunching...
 start "" "run_translator.bat"
 
-(goto) 2>nul & del "%~f0"
+(goto) 2>nul & del "%%~f0"
 """
                 updater_path = os.path.join(APP_DIR, "update.bat")
                 with open(updater_path, "w", encoding='utf-8') as f:
