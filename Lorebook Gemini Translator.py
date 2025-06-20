@@ -140,7 +140,7 @@ logger = logging.getLogger('Lorebook_Gemini_Translator')
 default_settings = {
     "api_keys": [],
     "current_api_key_index": 0,
-    "gemini_model": "gemini-1.5-flash-latest",
+    "gemini_model": "gemini-2.5-flash-lite-preview-06-17",
     "log_to_file": False,
     "show_log_panel": False,
     "log_level": "INFO",
@@ -154,7 +154,7 @@ default_settings = {
     "selected_source_language": "English",
     "manual_rpm_control": False,
     "api_request_delay": 6.0,
-    "rpm_limit": 9,
+    "rpm_limit": 10,
     "rpm_warning_threshold_percent": 60,
     "rpm_monitor_update_interval_ms": 1000,
     "available_gemini_models": []
@@ -225,10 +225,12 @@ def check_for_updates(force_update=False):
 
                 updater_script_content = """
 @echo off
+
 SETLOCAL EnableDelayedExpansion
 chcp 65001 > nul
 set PYTHONIOENCODING=utf-8
 
+set "SKIP_LIST=pip setuptools wheel PyQtDarkTheme-fork PySide6"
 set "PY_FILE_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/Lorebook%20Gemini%20Translator.py"
 set "REQUIREMENTS_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/requirements.txt"
 set "LAUNCHER_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/run_translator.bat"
@@ -245,40 +247,52 @@ IF errorlevel 1 (
     exit /b
 )
 
-echo.
-echo [2/4] Finding obsolete top-level packages...
-pip list --not-required --format=freeze > installed_toplevel.txt
-copy nul to_uninstall.txt >nul
-FOR /F "tokens=1 delims==" %%i IN (installed_toplevel.txt) DO (
-    findstr /L /I /X "%%i" requirements.new.txt >nul
-    IF errorlevel 1 (
-        echo    - Found obsolete package to remove: %%i
-        echo %%i >> to_uninstall.txt
-    )
+echo [2/4] Preparing clean requirement names...
+> req_names.txt (
+  FOR /F "usebackq tokens=1 delims==" %%r IN ("requirements.new.txt") DO (
+    echo %%r
+  )
 )
 
-echo.
-echo [3/4] Updating libraries...
+echo [3/4] Finding obsolete top-level packages...
+pip list --not-required --format=freeze > installed_toplevel.txt
+echo. > to_uninstall.txt
+
+FOR /F "tokens=1 delims==" %%i IN (installed_toplevel.txt) DO (
+    echo %SKIP_LIST% | findstr /I "\<%%i\>" >nul && (
+        echo    - Skipping essential package: %%i
+        goto :continueLoop
+    )
+    findstr /L /I /X "%%i" req_names.txt >nul
+    IF errorlevel 1 (
+        echo    - Found obsolete package to remove: %%i
+        echo %%i>>to_uninstall.txt
+    )
+    :continueLoop
+)
+
+del req_names.txt
+
+echo [4/4] Updating libraries...
 FOR /F "delims=" %%p IN (to_uninstall.txt) DO (
-    echo    - Uninstalling %%p...
+    echo    - Uninstalling %%p ...
     pip uninstall -y %%p >nul
 )
 echo    - Installing all required packages...
 pip install -r requirements.new.txt
 
-echo.
-echo [4/4] Updating application files and restarting...
+echo [5/4] Updating application files and restarting...
 ren "Lorebook Gemini Translator.py" "Lorebook Gemini Translator.py.bak"
 curl -L -o "Lorebook Gemini Translator.py" "%PY_FILE_URL%"
 ren "run_translator.bat" "run_translator.bat.bak"
 curl -L -o "run_translator.bat" "%LAUNCHER_URL%"
 
-echo.
-echo    - Cleaning up temporary files...
+echo Cleaning up temporary files...
 del installed_toplevel.txt >nul
 del to_uninstall.txt >nul
 del requirements.new.txt >nul
-echo    - Relaunching...
+
+echo Relaunching application...
 start "" "run_translator.bat"
 
 DEL "%~f0"
