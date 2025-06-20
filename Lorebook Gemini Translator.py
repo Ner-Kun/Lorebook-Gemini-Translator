@@ -228,7 +228,6 @@ def check_for_updates(force_update=False):
 chcp 65001 > nul
 set PYTHONIOENCODING=utf-8
 
-
 echo Starting update... Please wait.
 echo This window will close automatically.
 
@@ -237,14 +236,13 @@ timeout /t 3 > nul
 echo(
 echo [1/4] Downloading new library requirements...
 curl -L -o "requirements.new.txt" "{REQUIREMENTS_URL}"
-if %errorlevel% neq 0 (
+if errorlevel 1 (
     echo ERROR: Failed to download requirements.txt. Aborting.
-    echo Please check your internet connection and repository URL.
     pause
     exit /b
 )
 findstr /C:"PySide6" "requirements.new.txt" >nul
-if %errorlevel% neq 0 (
+if errorlevel 1 (
     echo ERROR: Downloaded requirements.txt seems to be invalid (e.g., a 404 page). Aborting.
     del "requirements.new.txt"
     pause
@@ -254,11 +252,10 @@ if %errorlevel% neq 0 (
 echo(
 echo [2/4] Finding obsolete top-level packages...
 pip list --not-required --format=freeze > installed_toplevel.txt
-
 copy nul to_uninstall.txt >nul
 FOR /F "tokens=1 delims==" %%i IN (installed_toplevel.txt) DO (
     findstr /L /I /X "%%i" requirements.new.txt >nul
-    IF ERRORLEVEL 1 (
+    IF errorlevel 1 (
         echo    - Found obsolete package to remove: %%i
         echo %%i >> to_uninstall.txt
     )
@@ -289,7 +286,6 @@ echo    - Cleaning up temporary files...
 del installed_toplevel.txt >nul
 del to_uninstall.txt >nul
 del requirements.new.txt >nul
-
 echo    - Relaunching...
 start "" "run_translator.bat"
 
