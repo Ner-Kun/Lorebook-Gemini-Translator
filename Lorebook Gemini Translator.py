@@ -1,6 +1,13 @@
 import sys
 import os
 def _show_manual_update_dialog(reason):
+
+    print("CRITICAL: Entering _show_manual_update_dialog function.")
+    print(f"CRITICAL: Reason for manual update: {reason}")
+    logger.critical("Entering _show_manual_update_dialog function.")
+    logger.critical(f"Reason for manual update: {reason}")
+
+
     print(f"INFO: Manual update required. Reason: {reason}")
     
     from PySide6 import QtWidgets, QtCore, QtGui
@@ -34,26 +41,53 @@ def _show_manual_update_dialog(reason):
 
 
 def perform_startup_verification():
+    print("--- Starting Startup Verification ---")
+    logger.debug("--- Starting Startup Verification ---")
+
     launcher_name = "run_translator.bat"
     launcher_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), launcher_name)
+    print(f"DEBUG: Checking for launcher at: {launcher_path}")
+    logger.debug(f"Checking for launcher at: {launcher_path}")
     
     if os.path.exists(launcher_path):
+        print("DEBUG: Launcher found. Reading content...")
+        logger.debug("Launcher found. Reading content...")
         try:
             with open(launcher_path, 'r', encoding='utf-8', errors='ignore') as f:
                 if 'google-generativeai' in f.read():
+                    print("CRITICAL: Outdated command 'google-generativeai' found in launcher!")
+                    logger.critical("Outdated command 'google-generativeai' found in launcher!")
                     _show_manual_update_dialog(f"The '{launcher_name}' launch file contains outdated commands.")
+                else:
+                    print("DEBUG: Launcher check passed. No outdated commands found.")
+                    logger.debug("Launcher check passed. No outdated commands found.")
         except Exception as e:
             print(f"WARNING: Unable to read file {launcher_name} for verification: {e}")
+            logger.warning(f"Unable to read file {launcher_name} for verification: {e}")
+    else:
+        print(f"WARNING: Launcher '{launcher_name}' not found. Skipping check.")
+        logger.warning(f"Launcher '{launcher_name}' not found. Skipping check.")
+
+    print("--- Checking for outdated library import ---")
+    logger.debug("--- Checking for outdated library import ---")
     try:
         import google.generativeai  #type: ignore #noqa: F401
-
-        print("INFO: Outdated library detected. Proposing automatic fix...")
+        
+        print("INFO: SUCCESS! Imported 'google.generativeai'. This is an outdated library.")
+        logger.info("SUCCESS: Imported 'google.generativeai'. This is an outdated library.")
+        print("DEBUG: perform_startup_verification will return True (needs automatic fix).")
+        logger.debug("perform_startup_verification will return True (needs automatic fix).")
         return True
 
     except ImportError:
+        print("INFO: OK. Failed to import 'google.generativeai'. The outdated library is not present.")
+        logger.info("OK. Failed to import 'google.generativeai'. The outdated library is not present.")
+        print("DEBUG: perform_startup_verification will return False (no automatic fix needed).")
+        logger.debug("perform_startup_verification will return False (no automatic fix needed).")
         return False
     except Exception as e:
         print(f"CRITICAL ERROR during library check: {e}")
+        logger.critical(f"CRITICAL ERROR during library check: {e}", exc_info=True)
         input("Press Enter to exit...")
         sys.exit(1)
 
@@ -129,6 +163,8 @@ current_settings = default_settings.copy()
 fh = None
 
 def check_for_updates(force_update=False):
+    print(f"--- Entering check_for_updates (force_update is: {force_update}) ---")
+    logger.debug(f"--- Entering check_for_updates (force_update is: {force_update}) ---")
 
     # VERSION_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/version.txt"
     # PY_FILE_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/Lorebook%%20Gemini%%20Translator.py"
@@ -141,21 +177,38 @@ def check_for_updates(force_update=False):
     LAUNCHER_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/run_translator.bat"
 
     try:
-        logger.info("Checking for updates...")
         update_reason = ""
+        print(f"DEBUG: Initial 'update_reason' is: '{update_reason}'")
+        logger.debug(f"Initial 'update_reason' is: '{update_reason}'")
 
         if force_update:
+            print("DEBUG: 'force_update' is True. Setting update reason for auto-fix.")
+            logger.debug("'force_update' is True. Setting update reason for auto-fix.")
             update_reason = "An outdated library was found and needs to be fixed automatically."
+            print(f"DEBUG: 'update_reason' is now: '{update_reason}'")
+            logger.debug(f"'update_reason' is now: '{update_reason}'")
         else:
+            print("DEBUG: 'force_update' is False. Checking version online...")
+            logger.debug("'force_update' is False. Checking version online...")
             response = requests.get(VERSION_URL, timeout=5)
             response.raise_for_status()
             latest_version = response.text.strip()
+            print(f"DEBUG: Fetched version: '{latest_version}'. Current version: '{APP_VERSION}'.")
+            logger.debug(f"Fetched version: '{latest_version}'. Current version: '{APP_VERSION}'.")
             
             if latest_version > APP_VERSION:
+                print("DEBUG: New version found. Setting update reason.")
+                logger.debug("New version found. Setting update reason.")
                 update_reason = f"A new version ({latest_version}) of the translator is available!"
+                print(f"DEBUG: 'update_reason' is now: '{update_reason}'")
+                logger.debug(f"'update_reason' is now: '{update_reason}'")
+
+        print(f"--- Final check before showing dialog. 'update_reason' is: '{update_reason}' ---")
+        logger.debug(f"--- Final check before showing dialog. 'update_reason' is: '{update_reason}' ---")
 
         if update_reason:
-            logger.info(f"Update triggered. Reason: {update_reason}")
+            print("DEBUG: 'update_reason' is not empty. Showing update dialog.")
+            logger.debug("'update_reason' is not empty. Showing update dialog.")
             
             from PySide6 import QtWidgets
             msg_box = QtWidgets.QMessageBox()
@@ -167,6 +220,7 @@ def check_for_updates(force_update=False):
             msg_box.setDefaultButton(QtWidgets.QMessageBox.Yes)
             
             if msg_box.exec() == QtWidgets.QMessageBox.Yes:
+                print("DEBUG: User clicked 'Yes'. Generating updater script.")
                 logger.info("User agreed to update. Creating updater script.")
 
                 updater_script_content = f"""
@@ -248,14 +302,19 @@ def check_for_updates(force_update=False):
                 updater_path = os.path.join(APP_DIR, "update.bat")
                 with open(updater_path, "w", encoding='utf-8') as f:
                     f.write(updater_script_content)
+                
+                print("DEBUG: Updater script 'update.bat' created. Launching and exiting application.")
+                logger.info("Updater script launched. Exiting application.")
 
                 subprocess.Popen(updater_path, shell=True)
-                logger.info("Updater script launched. Exiting application.")
                 sys.exit(0)
 
             else:
+                print("DEBUG: User clicked 'No'. Update declined.")
                 logger.info("User declined the update.")
         else:
+            print("DEBUG: 'update_reason' is empty. Skipping update dialog.")
+            logger.debug("'update_reason' is empty. Skipping update dialog.")
             logger.info("Application is up to date.")
             
     except requests.exceptions.RequestException as e:
@@ -3719,8 +3778,11 @@ if __name__ == '__main__':
     load_settings()
 
     needs_auto_fix = perform_startup_verification()
+    
+    print(f"--- Calling check_for_updates with force_update={needs_auto_fix} ---")
+    logger.info(f"--- Calling check_for_updates with force_update={needs_auto_fix} ---")
 
-    check_for_updates()
+    check_for_updates(force_update=needs_auto_fix)
 
     from google import genai  #noqa: E402
     from google.genai import types, errors  #noqa: E402
