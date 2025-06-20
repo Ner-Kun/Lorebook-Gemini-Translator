@@ -233,7 +233,7 @@ echo This window will close automatically.
 
 timeout /t 3 > nul
 
-echo.
+echo(
 echo [1/4] Downloading new library requirements...
 curl -L -o "requirements.new.txt" "{REQUIREMENTS_URL}"
 if %errorlevel% neq 0 (
@@ -250,7 +250,7 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
-echo.
+echo(
 echo [2/4] Finding obsolete top-level packages...
 pip list --not-required --format=freeze > installed_toplevel.txt
 
@@ -263,7 +263,7 @@ FOR /F "tokens=1 delims==" %%i IN (installed_toplevel.txt) DO (
     )
 )
 
-echo.
+echo(
 echo [3/4] Updating libraries...
 FOR /F "delims=" %%p IN (to_uninstall.txt) DO (
     echo    - Uninstalling %%p...
@@ -272,7 +272,7 @@ FOR /F "delims=" %%p IN (to_uninstall.txt) DO (
 echo    - Installing all required packages...
 pip install -r requirements.new.txt
 
-echo.
+echo(
 echo [4/4] Updating application files and restarting...
 echo    - Backing up old application file...
 ren "Lorebook Gemini Translator.py" "Lorebook Gemini Translator_v{APP_VERSION}.py.bak"
@@ -283,7 +283,7 @@ echo    - Updating launcher...
 ren "run_translator.bat" "run_translator.bat.bak"
 curl -L -o "run_translator.bat" "{LAUNCHER_URL}"
 
-echo.
+echo(
 echo    - Cleaning up temporary files...
 del installed_toplevel.txt >nul
 del to_uninstall.txt >nul
@@ -292,7 +292,6 @@ del requirements.new.txt >nul
 echo    - Relaunching...
 start "" "run_translator.bat"
 
-REM Самоуничтожение
 (goto) 2>nul & del "%~f0"
 """
                 updater_path = os.path.join(APP_DIR, "update.bat")
