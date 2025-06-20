@@ -228,6 +228,7 @@ def check_for_updates(force_update=False):
 chcp 65001 > nul
 set PYTHONIOENCODING=utf-8
 
+
 echo Starting update... Please wait.
 echo This window will close automatically.
 
