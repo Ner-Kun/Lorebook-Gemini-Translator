@@ -225,15 +225,25 @@ def check_for_updates(force_update=False):
 
                 updater_script_content = """
 @echo off
-
 SETLOCAL EnableDelayedExpansion
 chcp 65001 > nul
 set PYTHONIOENCODING=utf-8
 
-set "SKIP_LIST=pip setuptools wheel PyQtDarkTheme-fork PySide6"
+set "BASE_DIR=%~dp0"
+set "VENV_PY=%BASE_DIR%venv\Scripts\python.exe"
+set "PIP=%VENV_PY% -m pip"
+
+%PIP% --version | findstr /I "%BASE_DIR%venv" >nul
+if errorlevel 1 (
+    echo ERROR: pip does not point to the local venv. Cancel the update!
+    pause
+    exit /b
+)
+
 set "PY_FILE_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/Lorebook%20Gemini%20Translator.py"
 set "REQUIREMENTS_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/requirements.txt"
 set "LAUNCHER_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/run_translator.bat"
+set "SKIP_LIST= pip setuptools wheel PyQtDarkTheme-fork PySide6 "
 
 echo Starting update... Please wait.
 echo This window will close automatically.
@@ -255,31 +265,30 @@ echo [2/4] Preparing clean requirement names...
 )
 
 echo [3/4] Finding obsolete top-level packages...
-pip list --not-required --format=freeze > installed_toplevel.txt
+%PIP% list --not-required --format=freeze > installed_toplevel.txt
 echo. > to_uninstall.txt
 
 FOR /F "tokens=1 delims==" %%i IN (installed_toplevel.txt) DO (
-    echo %SKIP_LIST% | findstr /I "\<%%i\>" >nul && (
+    echo !SKIP_LIST! | findstr /I /L " %%i " >nul
+    if not errorlevel 1 (
         echo    - Skipping essential package: %%i
-        goto :continueLoop
+    ) else (
+        findstr /L /I /X "%%i" req_names.txt >nul
+        if errorlevel 1 (
+            echo    - Found obsolete package to remove: %%i
+            echo %%i>>to_uninstall.txt
+        )
     )
-    findstr /L /I /X "%%i" req_names.txt >nul
-    IF errorlevel 1 (
-        echo    - Found obsolete package to remove: %%i
-        echo %%i>>to_uninstall.txt
-    )
-    :continueLoop
 )
-
 del req_names.txt
 
 echo [4/4] Updating libraries...
 FOR /F "delims=" %%p IN (to_uninstall.txt) DO (
     echo    - Uninstalling %%p ...
-    pip uninstall -y %%p >nul
+    %PIP% uninstall -y %%p >nul
 )
 echo    - Installing all required packages...
-pip install -r requirements.new.txt
+%PIP% install -r requirements.new.txt
 
 echo [5/4] Updating application files and restarting...
 ren "Lorebook Gemini Translator.py" "Lorebook Gemini Translator.py.bak"
