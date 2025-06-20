@@ -1,13 +1,14 @@
 import sys
 import os
-def _show_manual_update_dialog(reason):
+import re
+import subprocess
 
+APP_VERSION = "0.1.0"
+
+
+def _show_manual_update_dialog(reason):
     print("CRITICAL: Entering _show_manual_update_dialog function.")
     print(f"CRITICAL: Reason for manual update: {reason}")
-    logger.critical("Entering _show_manual_update_dialog function.")
-    logger.critical(f"Reason for manual update: {reason}")
-
-
     print(f"INFO: Manual update required. Reason: {reason}")
     
     from PySide6 import QtWidgets, QtCore, QtGui
@@ -21,13 +22,13 @@ def _show_manual_update_dialog(reason):
     dialog.setWindowTitle("Update Required")
     dialog.setTextFormat(QtCore.Qt.RichText)
     dialog.setText(
-        "<h2>Your launcher (run_translator.bat) is outdated!</h2>"
-        "<p>To ensure the program works correctly, you MUST update your launcher file.</p>"
+        "<h2>Your run_translator.bat is outdated!</h2>"
+        "<p>To ensure the program works correctly, you MUST update your run_translator file.</p>"
+        f"<p><b>Reason:</b> {reason}</p>"
         "<p>Please download the latest version from GitHub:</p>"
         "<p><a href='https://github.com/Ner-Kun/Lorebook-Gemini-Translator/releases'>Click here to open the download page</a></p>"
         "<p>Replace your old <b>run_translator.bat</b> with the new one you downloaded.</p>"
         "<p>The application will now close.</p>")
-    
     try:
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         icon_path = os.path.join(base_path, 'icon.ico')
@@ -41,8 +42,27 @@ def _show_manual_update_dialog(reason):
 
 
 def perform_startup_verification():
+
+    LAUNCHER_VERSION = 2
+
     print("--- Starting Startup Verification ---")
     logger.debug("--- Starting Startup Verification ---")
+
+    try:
+        import PySide6  #noqa: F401
+        import qdarktheme  #noqa: F401
+    except ImportError as e:
+        print(f"INFO: Core library '{e.name}' not found. This is treated as a first run or broken environment.")
+        
+        print("\n" + "="*60)
+        print(" Welcome to Lorebook Gemini Translator!")
+        print(" This appears to be the first time running the application or the environment is incomplete.")
+        print(" The necessary libraries will now be installed automatically.")
+        print(" This may take a few minutes. Please wait...")
+        print("="*60 + "\n")
+
+        check_for_updates(force_update=True)
+        return False
 
     launcher_name = "run_translator.bat"
     launcher_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), launcher_name)
@@ -54,13 +74,20 @@ def perform_startup_verification():
         logger.debug("Launcher found. Reading content...")
         try:
             with open(launcher_path, 'r', encoding='utf-8', errors='ignore') as f:
-                if 'google-generativeai' in f.read():
-                    print("CRITICAL: Outdated command 'google-generativeai' found in launcher!")
-                    logger.critical("Outdated command 'google-generativeai' found in launcher!")
-                    _show_manual_update_dialog(f"The '{launcher_name}' launch file contains outdated commands.")
+                content = f.read()
+                
+                match = re.search(r'set\s+"LAUNCHER_VERSION=(\d+)"', content, re.IGNORECASE)
+                
+                if not match or int(match.group(1)) < LAUNCHER_VERSION:
+                    found_version = f"version {match.group(1)}" if match else "an old, unversioned one"
+                    reason = (f"The '{launcher_name}' launch file is outdated.\nFound {found_version}, but require version {LAUNCHER_VERSION} or higher.")
+                    print(f"CRITICAL: Outdated launcher found! {reason}")
+                    logger.critical(f"Outdated launcher found! {reason}")
+                    _show_manual_update_dialog(reason)
                 else:
-                    print("DEBUG: Launcher check passed. No outdated commands found.")
-                    logger.debug("Launcher check passed. No outdated commands found.")
+                    print(f"DEBUG: Launcher check passed. Found version {match.group(1)}, which is up to date.")
+                    logger.debug(f"Launcher check passed. Found version {match.group(1)}, which is up to date.")
+
         except Exception as e:
             print(f"WARNING: Unable to read file {launcher_name} for verification: {e}")
             logger.warning(f"Unable to read file {launcher_name} for verification: {e}")
@@ -92,12 +119,11 @@ def perform_startup_verification():
         sys.exit(1)
 
 import requests  #noqa: E402
-import subprocess  #noqa: E402
+
 import json  #noqa: E402
 import logging  #noqa: E402
 import random  #noqa: E402
 import hashlib  #noqa: E402
-import re  #noqa: E402
 import collections  #noqa: E402
 import time  #noqa: E402
 import copy  #noqa: E402
@@ -111,14 +137,10 @@ try:
 except ImportError:
     rich_available = False
 
-# from google import genai  #noqa: E402
-# from google.genai import types, errors  #noqa: E402
-# from google.api_core.exceptions import ResourceExhausted  #noqa: E402
-
 from PySide6 import QtWidgets, QtCore, QtGui  #noqa: E402
 import qdarktheme  #noqa: E402
 
-APP_VERSION = "0.1.0"
+
 if getattr(sys, 'frozen', False):
     APP_DIR = os.path.dirname(sys.executable)
 elif __file__:
@@ -154,7 +176,7 @@ default_settings = {
     "selected_source_language": "English",
     "manual_rpm_control": False,
     "api_request_delay": 6.0,
-    "rpm_limit": 10,
+    "rpm_limit": 15,
     "rpm_warning_threshold_percent": 60,
     "rpm_monitor_update_interval_ms": 1000,
     "available_gemini_models": []
@@ -162,19 +184,13 @@ default_settings = {
 current_settings = default_settings.copy()
 fh = None
 
+    # VERSION_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/version.txt"
+
 def check_for_updates(force_update=False):
     print(f"--- Entering check_for_updates (force_update is: {force_update}) ---")
     logger.debug(f"--- Entering check_for_updates (force_update is: {force_update}) ---")
 
-    # VERSION_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/version.txt"
-    # PY_FILE_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/Lorebook%%20Gemini%%20Translator.py"
-    # REQUIREMENTS_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/requirements.txt"
-    # LAUNCHER_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/run_translator.bat"
-
     VERSION_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/version.txt"
-    # PY_FILE_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/Lorebook%%20Gemini%%20Translator.py"
-    # REQUIREMENTS_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/requirements.txt"
-    # LAUNCHER_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/run_translator.bat"
 
     try:
         update_reason = ""
@@ -184,9 +200,7 @@ def check_for_updates(force_update=False):
         if force_update:
             print("DEBUG: 'force_update' is True. Setting update reason for auto-fix.")
             logger.debug("'force_update' is True. Setting update reason for auto-fix.")
-            update_reason = "An outdated library was found and needs to be fixed automatically."
-            print(f"DEBUG: 'update_reason' is now: '{update_reason}'")
-            logger.debug(f"'update_reason' is now: '{update_reason}'")
+            update_reason = "Initial setup or critical library update required."
         else:
             print("DEBUG: 'force_update' is False. Checking version online...")
             logger.debug("'force_update' is False. Checking version online...")
@@ -200,28 +214,34 @@ def check_for_updates(force_update=False):
                 print("DEBUG: New version found. Setting update reason.")
                 logger.debug("New version found. Setting update reason.")
                 update_reason = f"A new version ({latest_version}) of the translator is available!"
-                print(f"DEBUG: 'update_reason' is now: '{update_reason}'")
-                logger.debug(f"'update_reason' is now: '{update_reason}'")
-
-        print(f"--- Final check before showing dialog. 'update_reason' is: '{update_reason}' ---")
-        logger.debug(f"--- Final check before showing dialog. 'update_reason' is: '{update_reason}' ---")
+        
+        print(f"--- Final check before action. 'update_reason' is: '{update_reason}' ---")
+        logger.debug(f"--- Final check before action. 'update_reason' is: '{update_reason}' ---")
 
         if update_reason:
-            print("DEBUG: 'update_reason' is not empty. Showing update dialog.")
-            logger.debug("'update_reason' is not empty. Showing update dialog.")
+            should_run_updater = False
+
+            if not force_update:
+                from PySide6 import QtWidgets
+                msg_box = QtWidgets.QMessageBox()
+                msg_box.setIcon(QtWidgets.QMessageBox.Information)
+                msg_box.setWindowTitle("Update Available")
+                msg_box.setText(update_reason)
+                msg_box.setInformativeText("Do you want to run the updater now?\nThe application will restart.")
+                msg_box.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+                msg_box.setDefaultButton(QtWidgets.QMessageBox.Yes)
+                
+                if msg_box.exec() == QtWidgets.QMessageBox.Yes:
+                    should_run_updater = True
+                else:
+                    print("DEBUG: User clicked 'No'. Update declined.")
+                    logger.info("User declined the update.")
+            else:
+                should_run_updater = True
             
-            from PySide6 import QtWidgets
-            msg_box = QtWidgets.QMessageBox()
-            msg_box.setIcon(QtWidgets.QMessageBox.Information)
-            msg_box.setWindowTitle("Update Required")
-            msg_box.setText(update_reason)
-            msg_box.setInformativeText("Do you want to run the updater now?\nThe application will restart.")
-            msg_box.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
-            msg_box.setDefaultButton(QtWidgets.QMessageBox.Yes)
-            
-            if msg_box.exec() == QtWidgets.QMessageBox.Yes:
-                print("DEBUG: User clicked 'Yes'. Generating updater script.")
-                logger.info("User agreed to update. Creating updater script.")
+            if should_run_updater:
+                print("DEBUG: Generating and launching the updater script.")
+                logger.info("Generating and launching the updater script.")
 
                 updater_script_content = """
 @echo off
@@ -229,27 +249,34 @@ SETLOCAL EnableDelayedExpansion
 chcp 65001 > nul
 set PYTHONIOENCODING=utf-8
 
+echo ===============================================================
+echo =           Lorebook Gemini Translator Updater                =
+echo ===============================================================
+echo.
+
 set "BASE_DIR=%~dp0"
 set "VENV_PY=%BASE_DIR%venv\\Scripts\\python.exe"
 set "PIP=%VENV_PY% -m pip"
 
-%PIP% --version | findstr /I "venv" >nul
-if errorlevel 1 (
-    echo ERROR: pip does not point to the local venv. Cancel the update!
-    pause
-    exit /b
-)
-
 set "PY_FILE_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/Lorebook%20Gemini%20Translator.py"
 set "REQUIREMENTS_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/requirements.txt"
 set "LAUNCHER_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/run_translator.bat"
-set "SKIP_LIST= pip setuptools wheel PyQtDarkTheme-fork PySide6 "
 
-echo Starting update... Please wait.
-echo This window will close automatically.
+set "SKIP_LIST= pip setuptools wheel "
+
+echo Starting update... Please wait. This window will close automatically.
 timeout /t 3 > nul
 
-echo [1/4] Downloading new library requirements...
+echo [1/5] Verifying environment...
+%PIP% --version | findstr /I "venv" >nul
+if errorlevel 1 (
+    echo ERROR: pip command does not point to the local 'venv'. Update cancelled.
+    pause
+    exit /b
+)
+echo      ... Environment OK.
+
+echo [2/5] Downloading new library requirements...
 curl -L -o "requirements.new.txt" "%REQUIREMENTS_URL%"
 IF errorlevel 1 (
     echo ERROR: Failed to download requirements.txt. Aborting.
@@ -257,43 +284,57 @@ IF errorlevel 1 (
     exit /b
 )
 
-echo [2/4] Preparing clean requirement names...
+echo [3/5] Finding obsolete packages to remove...
+%PIP% list --not-required --format=freeze > installed_toplevel.txt
+> to_uninstall.txt (
+)
+
 > req_names.txt (
-  FOR /F "usebackq tokens=1 delims==" %%r IN ("requirements.new.txt") DO (
+  FOR /F "usebackq tokens=1 delims===<>>= " %%r IN ("requirements.new.txt") DO (
     echo %%r
   )
 )
 
-echo [3/4] Finding obsolete top-level packages...
-%PIP% list --not-required --format=freeze > installed_toplevel.txt
-echo. > to_uninstall.txt
-
 FOR /F "tokens=1 delims==" %%i IN (installed_toplevel.txt) DO (
     echo !SKIP_LIST! | findstr /I /L " %%i " >nul
     if not errorlevel 1 (
-        echo    - Skipping essential package: %%i
     ) else (
         findstr /L /I /X "%%i" req_names.txt >nul
         if errorlevel 1 (
-            echo    - Found obsolete package to remove: %%i
+            echo    - Marking obsolete package for removal: %%i
             echo %%i>>to_uninstall.txt
         )
     )
 )
 del req_names.txt
+echo      ... Obsolete package check complete.
 
-echo [4/4] Updating libraries...
-FOR /F "delims=" %%p IN (to_uninstall.txt) DO (
-    echo    - Uninstalling %%p ...
-    %PIP% uninstall -y %%p >nul
+echo [4/5] Updating libraries...
+set anything_uninstalled=false
+FOR /F "usebackq delims=" %%p IN ("to_uninstall.txt") DO (
+    if not "%%p"=="" (
+        echo    - Uninstalling %%p ...
+        %PIP% uninstall -y %%p >nul
+        set anything_uninstalled=true
+    )
 )
-echo    - Installing all required packages...
-%PIP% install -r requirements.new.txt
+if !anything_uninstalled!==false (
+    echo    - No obsolete packages to uninstall.
+)
 
-echo [5/4] Updating application files and restarting...
-ren "Lorebook Gemini Translator.py" "Lorebook Gemini Translator.py.bak"
+echo    - Installing all required packages from requirements.new.txt...
+%PIP% install -r requirements.new.txt >nul
+if errorlevel 1 (
+    echo ERROR: Failed to install libraries. Update failed.
+    pause
+    exit /b
+)
+echo      ... Libraries are now up-to-date.
+
+echo [5/5] Updating application files and restarting...
+ren "Lorebook Gemini Translator.py" "Lorebook Gemini Translator.py.bak" >nul 2>nul
 curl -L -o "Lorebook Gemini Translator.py" "%PY_FILE_URL%"
-ren "run_translator.bat" "run_translator.bat.bak"
+ren "run_translator.bat" "run_translator.bat.bak" >nul 2>nul
 curl -L -o "run_translator.bat" "%LAUNCHER_URL%"
 
 echo Cleaning up temporary files...
@@ -302,7 +343,12 @@ del to_uninstall.txt >nul
 del requirements.new.txt >nul
 
 echo Relaunching application...
-start "" "run_translator.bat"
+if exist "run_translator.bat" (
+    start "" "run_translator.bat"
+) else (
+    echo ERROR: Launcher not found. Please run manually.
+    pause
+)
 
 DEL "%~f0"
 """
@@ -311,17 +357,11 @@ DEL "%~f0"
                     f.write(updater_script_content)
                 
                 print("DEBUG: Updater script 'update.bat' created. Launching and exiting application.")
-                logger.info("Updater script launched. Exiting application.")
 
                 subprocess.Popen(updater_path, shell=True)
                 sys.exit(0)
-
-            else:
-                print("DEBUG: User clicked 'No'. Update declined.")
-                logger.info("User declined the update.")
         else:
             print("DEBUG: 'update_reason' is empty. Skipping update dialog.")
-            logger.debug("'update_reason' is empty. Skipping update dialog.")
             logger.info("Application is up to date.")
             
     except requests.exceptions.RequestException as e:
