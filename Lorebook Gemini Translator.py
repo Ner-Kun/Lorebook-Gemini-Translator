@@ -172,9 +172,9 @@ def check_for_updates(force_update=False):
     # LAUNCHER_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/run_translator.bat"
 
     VERSION_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/version.txt"
-    PY_FILE_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/Lorebook%%20Gemini%%20Translator.py"
-    REQUIREMENTS_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/requirements.txt"
-    LAUNCHER_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/run_translator.bat"
+    # PY_FILE_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/Lorebook%%20Gemini%%20Translator.py"
+    # REQUIREMENTS_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/requirements.txt"
+    # LAUNCHER_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/run_translator.bat"
 
     try:
         update_reason = ""
@@ -223,37 +223,32 @@ def check_for_updates(force_update=False):
                 print("DEBUG: User clicked 'Yes'. Generating updater script.")
                 logger.info("User agreed to update. Creating updater script.")
 
-                updater_script_content = f"""
+                updater_script_content = """
 @echo off
+SETLOCAL EnableDelayedExpansion
 chcp 65001 > nul
 set PYTHONIOENCODING=utf-8
 
+set "PY_FILE_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/Lorebook%20Gemini%20Translator.py"
+set "REQUIREMENTS_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/requirements.txt"
+set "LAUNCHER_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/run_translator.bat"
+
 echo Starting update... Please wait.
 echo This window will close automatically.
-
 timeout /t 3 > nul
 
-echo(
 echo [1/4] Downloading new library requirements...
-curl -L -o "requirements.new.txt" "{REQUIREMENTS_URL}"
-if errorlevel 1 (
+curl -L -o "requirements.new.txt" "%REQUIREMENTS_URL%"
+IF errorlevel 1 (
     echo ERROR: Failed to download requirements.txt. Aborting.
     pause
     exit /b
 )
-findstr /C:"PySide6" "requirements.new.txt" >nul
-if errorlevel 1 (
-    echo ERROR: Downloaded requirements.txt seems to be invalid (e.g., a 404 page). Aborting.
-    del "requirements.new.txt"
-    pause
-    exit /b
-)
 
-echo(
+echo.
 echo [2/4] Finding obsolete top-level packages...
 pip list --not-required --format=freeze > installed_toplevel.txt
 copy nul to_uninstall.txt >nul
-
 FOR /F "tokens=1 delims==" %%i IN (installed_toplevel.txt) DO (
     findstr /L /I /X "%%i" requirements.new.txt >nul
     IF errorlevel 1 (
@@ -262,7 +257,7 @@ FOR /F "tokens=1 delims==" %%i IN (installed_toplevel.txt) DO (
     )
 )
 
-echo(
+echo.
 echo [3/4] Updating libraries...
 FOR /F "delims=" %%p IN (to_uninstall.txt) DO (
     echo    - Uninstalling %%p...
@@ -271,18 +266,14 @@ FOR /F "delims=" %%p IN (to_uninstall.txt) DO (
 echo    - Installing all required packages...
 pip install -r requirements.new.txt
 
-echo(
+echo.
 echo [4/4] Updating application files and restarting...
-echo    - Backing up old application file...
-ren "Lorebook Gemini Translator.py" "Lorebook Gemini Translator_v{APP_VERSION}.py.bak"
-echo    - Downloading new application file...
-curl -L -o "Lorebook Gemini Translator.py" "{PY_FILE_URL}"
-
-echo    - Updating launcher...
+ren "Lorebook Gemini Translator.py" "Lorebook Gemini Translator.py.bak"
+curl -L -o "Lorebook Gemini Translator.py" "%PY_FILE_URL%"
 ren "run_translator.bat" "run_translator.bat.bak"
-curl -L -o "run_translator.bat" "{LAUNCHER_URL}"
+curl -L -o "run_translator.bat" "%LAUNCHER_URL%"
 
-echo(
+echo.
 echo    - Cleaning up temporary files...
 del installed_toplevel.txt >nul
 del to_uninstall.txt >nul
@@ -290,7 +281,7 @@ del requirements.new.txt >nul
 echo    - Relaunching...
 start "" "run_translator.bat"
 
-(goto) 2>nul & del "%%~f0"
+DEL "%~f0"
 """
                 updater_path = os.path.join(APP_DIR, "update.bat")
                 with open(updater_path, "w", encoding='utf-8') as f:
