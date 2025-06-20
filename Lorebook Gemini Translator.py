@@ -173,8 +173,8 @@ def check_for_updates(force_update=False):
 
     VERSION_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/version.txt"
     PY_FILE_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/Lorebook%%20Gemini%%20Translator.py"
-    REQUIREMENTS_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/requirements.txt"
-    LAUNCHER_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/run_translator.bat"
+    REQUIREMENTS_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/requirements.txt"
+    LAUNCHER_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/run_translator.bat"
 
     try:
         update_reason = ""
@@ -224,81 +224,77 @@ def check_for_updates(force_update=False):
                 logger.info("User agreed to update. Creating updater script.")
 
                 updater_script_content = f"""
-                                        @echo off
-                                        chcp 65001 > nul
-                                        echo Starting update... Please wait.
-                                        echo This window will close automatically.
+@echo off
+chcp 65001 > nul
+set PYTHONIOENCODING=utf-8
 
-                                        REM Wait for the main application to close
-                                        timeout /t 3 > nul
+echo Starting update... Please wait.
+echo This window will close automatically.
 
-                                        echo.
-                                        echo [1/5] Downloading new library requirements...
-                                        curl -L -o "requirements.new.txt" "{REQUIREMENTS_URL}"
-                                        if %errorlevel% neq 0 (
-                                            echo ERROR: Failed to download requirements.txt. Aborting.
-                                            pause
-                                            exit /b
-                                        )
+timeout /t 3 > nul
 
-                                        echo.
-                                        echo [2/5] Analyzing installed packages to find outdated ones...
-                                        pip freeze > installed.txt
-                                        copy nul candidates_for_deletion.txt >nul
-                                        copy nul to_uninstall_final.txt >nul
+echo.
+echo [1/4] Downloading new library requirements...
+curl -L -o "requirements.new.txt" "{REQUIREMENTS_URL}"
+if %errorlevel% neq 0 (
+    echo ERROR: Failed to download requirements.txt. Aborting.
+    echo Please check your internet connection and repository URL.
+    pause
+    exit /b
+)
+findstr /C:"PySide6" "requirements.new.txt" >nul
+if %errorlevel% neq 0 (
+    echo ERROR: Downloaded requirements.txt seems to be invalid (e.g., a 404 page). Aborting.
+    del "requirements.new.txt"
+    pause
+    exit /b
+)
 
-                                        FOR /F "tokens=1 delims==" %%i IN (installed.txt) DO (
-                                            findstr /L /I /X "%%i" requirements.new.txt >nul
-                                            IF ERRORLEVEL 1 (
-                                                echo %%i >> candidates_for_deletion.txt
-                                            )
-                                        )
+echo.
+echo [2/4] Finding obsolete top-level packages...
+pip list --not-required --format=freeze > installed_toplevel.txt
 
-                                        FOR /F "delims=" %%c IN (candidates_for_deletion.txt) DO (
-                                            pip show %%c | findstr /R /C:"^Required-by: *$" >nul
-                                            IF NOT ERRORLEVEL 1 (
-                                                echo %%c >> to_uninstall_final.txt
-                                            )
-                                        )
+copy nul to_uninstall.txt >nul
+FOR /F "tokens=1 delims==" %%i IN (installed_toplevel.txt) DO (
+    findstr /L /I /X "%%i" requirements.new.txt >nul
+    IF ERRORLEVEL 1 (
+        echo    - Found obsolete package to remove: %%i
+        echo %%i >> to_uninstall.txt
+    )
+)
 
-                                        echo.
-                                        echo [3/5] Updating libraries...
-                                        FOR /F "delims=" %%p IN (to_uninstall_final.txt) DO (
-                                            echo    - Uninstalling %%p...
-                                            pip uninstall -y %%p >nul
-                                        )
-                                        echo    - Installing from new requirements...
-                                        pip install -r requirements.new.txt
+echo.
+echo [3/4] Updating libraries...
+FOR /F "delims=" %%p IN (to_uninstall.txt) DO (
+    echo    - Uninstalling %%p...
+    pip uninstall -y %%p >nul
+)
+echo    - Installing all required packages...
+pip install -r requirements.new.txt
 
-                                        echo.
-                                        echo [4/5] Updating application files...
-                                        echo    - Backing up old application file...
-                                        ren "Lorebook Gemini Translator Dev.py" "Lorebook Gemini Translator Dev_v{APP_VERSION}.py.bak"
-                                        echo    - Downloading new application file...
-                                        curl -L -o "Lorebook Gemini Translator Dev.py" "{PY_FILE_URL}"
-                                        if %errorlevel% neq 0 (
-                                            echo ERROR: Failed to download the new application file.
-                                            echo Please restore the backup file manually from .bak file.
-                                            pause
-                                            exit /b
-                                        )
+echo.
+echo [4/4] Updating application files and restarting...
+echo    - Backing up old application file...
+ren "Lorebook Gemini Translator.py" "Lorebook Gemini Translator_v{APP_VERSION}.py.bak"
+echo    - Downloading new application file...
+curl -L -o "Lorebook Gemini Translator.py" "{PY_FILE_URL}"
 
-                                        echo    - Updating launcher...
-                                        ren "run_translator.bat" "run_translator.bat.bak"
-                                        curl -L -o "run_translator.bat" "{LAUNCHER_URL}"
+echo    - Updating launcher...
+ren "run_translator.bat" "run_translator.bat.bak"
+curl -L -o "run_translator.bat" "{LAUNCHER_URL}"
 
-                                        echo.
-                                        echo [5/5] Cleaning up and restarting...
-                                        del installed.txt >nul
-                                        del candidates_for_deletion.txt >nul
-                                        del to_uninstall_final.txt >nul
-                                        del requirements.new.txt >nul
+echo.
+echo    - Cleaning up temporary files...
+del installed_toplevel.txt >nul
+del to_uninstall.txt >nul
+del requirements.new.txt >nul
 
-                                        start "" "run_translator.bat"
+echo    - Relaunching...
+start "" "run_translator.bat"
 
-                                        REM Self-delete
-                                        (goto) 2>nul & del "%~f0"
-                                        """
+REM Самоуничтожение
+(goto) 2>nul & del "%~f0"
+"""
                 updater_path = os.path.join(APP_DIR, "update.bat")
                 with open(updater_path, "w", encoding='utf-8') as f:
                     f.write(updater_script_content)
