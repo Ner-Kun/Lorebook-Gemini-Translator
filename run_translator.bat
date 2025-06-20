@@ -26,7 +26,7 @@ if not exist "%VENV_DIR%\Scripts\activate.bat" (
     
     echo Installing core libraries (PySide6, requests)...
     python -m pip install --upgrade pip setuptools
-    pip install PySide6 requests
+    pip install google-genai PySide6 requests
     if errorlevel 1 (
         echo Core dependency installation failed. Check your internet connection.
         pause
