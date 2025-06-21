@@ -262,7 +262,7 @@ set "PY_FILE_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Trans
 set "REQUIREMENTS_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/requirements.txt"
 set "LAUNCHER_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/run_translator.bat"
 
-set "SKIP_LIST= pip setuptools PySide6 pyqtdarktheme-fork requests"
+set "SKIP_LIST= pip setuptools wheel PySide6 pyqtdarktheme-fork requests"
 
 echo Starting update... Please wait. This window will close automatically.
 timeout /t 3 > nul
