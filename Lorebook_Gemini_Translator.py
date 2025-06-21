@@ -2,131 +2,18 @@ import sys
 import os
 import re
 import subprocess
-
-APP_VERSION = "0.1.0"
-
-
-def _show_manual_update_dialog(reason):
-    print("CRITICAL: Entering _show_manual_update_dialog function.")
-    print(f"CRITICAL: Reason for manual update: {reason}")
-    print(f"INFO: Manual update required. Reason: {reason}")
-    
-    from PySide6 import QtWidgets, QtCore, QtGui
-
-    app = QtWidgets.QApplication.instance()
-    if not app:
-        app = QtWidgets.QApplication(sys.argv)
-
-    dialog = QtWidgets.QMessageBox()
-    dialog.setIcon(QtWidgets.QMessageBox.Critical)
-    dialog.setWindowTitle("Update Required")
-    dialog.setTextFormat(QtCore.Qt.RichText)
-    dialog.setText(
-        "<h2>Your run_translator.bat is outdated!</h2>"
-        "<p>To ensure the program works correctly, you MUST update your run_translator file.</p>"
-        f"<p><b>Reason:</b> {reason}</p>"
-        "<p>Please download the latest version from GitHub:</p>"
-        "<p><a href='https://github.com/Ner-Kun/Lorebook-Gemini-Translator/releases'>Click here to open the download page</a></p>"
-        "<p>Replace your old <b>run_translator.bat</b> with the new one you downloaded.</p>"
-        "<p>The application will now close.</p>")
-    try:
-        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-        icon_path = os.path.join(base_path, 'icon.ico')
-        if os.path.exists(icon_path):
-            dialog.setWindowIcon(QtGui.QIcon(icon_path))
-    except Exception:
-        pass
-
-    dialog.exec()
-    sys.exit(1)
+import requests
+import json
+import logging
+import random
+import hashlib
+import collections
+import time
+import copy
 
 
-def perform_startup_verification():
-
-    LAUNCHER_VERSION = 2
-
-    print("--- Starting Startup Verification ---")
-    logger.debug("--- Starting Startup Verification ---")
-
-    try:
-        import PySide6  #noqa: F401
-        import qdarktheme  #noqa: F401
-    except ImportError as e:
-        print(f"INFO: Core library '{e.name}' not found. This is treated as a first run or broken environment.")
-        
-        print("\n" + "="*60)
-        print(" Welcome to Lorebook Gemini Translator!")
-        print(" This appears to be the first time running the application or the environment is incomplete.")
-        print(" The necessary libraries will now be installed automatically.")
-        print(" This may take a few minutes. Please wait...")
-        print("="*60 + "\n")
-
-        check_for_updates(force_update=True)
-        return False
-
-    launcher_name = "run_translator.bat"
-    launcher_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), launcher_name)
-    print(f"DEBUG: Checking for launcher at: {launcher_path}")
-    logger.debug(f"Checking for launcher at: {launcher_path}")
-    
-    if os.path.exists(launcher_path):
-        print("DEBUG: Launcher found. Reading content...")
-        logger.debug("Launcher found. Reading content...")
-        try:
-            with open(launcher_path, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read()
-                
-                match = re.search(r'set\s+"LAUNCHER_VERSION=(\d+)"', content, re.IGNORECASE)
-                
-                if not match or int(match.group(1)) < LAUNCHER_VERSION:
-                    found_version = f"version {match.group(1)}" if match else "an old, unversioned one"
-                    reason = (f"The '{launcher_name}' launch file is outdated.\nFound {found_version}, but require version {LAUNCHER_VERSION} or higher.")
-                    print(f"CRITICAL: Outdated launcher found! {reason}")
-                    logger.critical(f"Outdated launcher found! {reason}")
-                    _show_manual_update_dialog(reason)
-                else:
-                    print(f"DEBUG: Launcher check passed. Found version {match.group(1)}, which is up to date.")
-                    logger.debug(f"Launcher check passed. Found version {match.group(1)}, which is up to date.")
-
-        except Exception as e:
-            print(f"WARNING: Unable to read file {launcher_name} for verification: {e}")
-            logger.warning(f"Unable to read file {launcher_name} for verification: {e}")
-    else:
-        print(f"WARNING: Launcher '{launcher_name}' not found. Skipping check.")
-        logger.warning(f"Launcher '{launcher_name}' not found. Skipping check.")
-
-    print("--- Checking for outdated library import ---")
-    logger.debug("--- Checking for outdated library import ---")
-    try:
-        import google.generativeai  #type: ignore #noqa: F401
-        
-        print("INFO: SUCCESS! Imported 'google.generativeai'. This is an outdated library.")
-        logger.info("SUCCESS: Imported 'google.generativeai'. This is an outdated library.")
-        print("DEBUG: perform_startup_verification will return True (needs automatic fix).")
-        logger.debug("perform_startup_verification will return True (needs automatic fix).")
-        return True
-
-    except ImportError:
-        print("INFO: OK. Failed to import 'google.generativeai'. The outdated library is not present.")
-        logger.info("OK. Failed to import 'google.generativeai'. The outdated library is not present.")
-        print("DEBUG: perform_startup_verification will return False (no automatic fix needed).")
-        logger.debug("perform_startup_verification will return False (no automatic fix needed).")
-        return False
-    except Exception as e:
-        print(f"CRITICAL ERROR during library check: {e}")
-        logger.critical(f"CRITICAL ERROR during library check: {e}", exc_info=True)
-        input("Press Enter to exit...")
-        sys.exit(1)
-
-import requests  #noqa: E402
-
-import json  #noqa: E402
-import logging  #noqa: E402
-import random  #noqa: E402
-import hashlib  #noqa: E402
-import collections  #noqa: E402
-import time  #noqa: E402
-import copy  #noqa: E402
+from PySide6 import QtWidgets, QtCore, QtGui 
+import qdarktheme
 
 try:
     from rich.logging import RichHandler
@@ -137,8 +24,6 @@ try:
 except ImportError:
     rich_available = False
 
-from PySide6 import QtWidgets, QtCore, QtGui  #noqa: E402
-import qdarktheme  #noqa: E402
 
 
 if getattr(sys, 'frozen', False):
@@ -148,7 +33,7 @@ elif __file__:
 else:
     APP_DIR = os.getcwd()
 
-
+APP_VERSION = "0.1.0"
 SETTINGS_FILE = os.path.join(APP_DIR, "translator_settings.json")
 LOG_FILE = os.path.join(APP_DIR, "translator.log")
 MAX_RECENT_FILES = 10
@@ -184,38 +69,125 @@ default_settings = {
 current_settings = default_settings.copy()
 fh = None
 
+def _show_manual_update_dialog(reason):
+    print("CRITICAL: Entering _show_manual_update_dialog function.")
+    print(f"CRITICAL: Reason for manual update: {reason}")
+    print(f"INFO: Manual update required. Reason: {reason}")
+    
+    from PySide6 import QtWidgets, QtCore, QtGui
+
+    app = QtWidgets.QApplication.instance()
+    if not app:
+        app = QtWidgets.QApplication(sys.argv)
+
+    dialog = QtWidgets.QMessageBox()
+    dialog.setIcon(QtWidgets.QMessageBox.Critical)
+    dialog.setWindowTitle("Update Required")
+    dialog.setTextFormat(QtCore.Qt.RichText)
+    dialog.setText(
+        "<h2>Your run_translator.bat is outdated!</h2>"
+        "<p>To ensure the program works correctly, you MUST update your run_translator file.</p>"
+        f"<p><b>Reason:</b> {reason}</p>"
+        "<p>Please download the latest version from GitHub:</p>"
+        "<p><a href='https://github.com/Ner-Kun/Lorebook-Gemini-Translator/releases'>Click here to open the download page</a></p>"
+        "<p>Replace your old <b>run_translator.bat</b> with the new one you downloaded.</p>"
+        "<p>The application will now close.</p>")
+    try:
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        icon_path = os.path.join(base_path, 'icon.ico')
+        if os.path.exists(icon_path):
+            dialog.setWindowIcon(QtGui.QIcon(icon_path))
+    except Exception:
+        pass
+
+    dialog.exec()
+    sys.exit(1)
+
+def perform_startup_verification():
+    LAUNCHER_VERSION = 2
+    logger.debug("--- Starting Startup Verification ---")
+    logger.debug("--- Checking for outdated library import ---")
+    try:
+        import google.generativeai  #type: ignore #noqa: F401
+        logger.info("SUCCESS: Imported 'google.generativeai'. This is an outdated library.")
+        logger.debug("An automatic fix is required. Forcing update...")
+        check_for_updates(force_update=True)
+        return True
+
+    except ImportError:
+        logger.info("OK. Failed to import 'google.generativeai'. The outdated library is not present.")
+    except Exception as e:
+        logger.critical(f"CRITICAL ERROR during outdated library check: {e}", exc_info=True)
+        sys.exit(1)
+
+    logger.debug("--- Checking for required libraries (First Run Detection) ---")
+    try:
+        from google import genai  #noqa: F401
+    except ImportError as e:
+        print(f"INFO: Core library '{e.name}' not found. This is treated as a first run or broken environment.")
+        
+        print("\n" + "="*60)
+        print(" Welcome to Lorebook Gemini Translator!")
+        print(" This appears to be the first time running the application or the environment is incomplete.")
+        print(" The necessary libraries will now be installed automatically.")
+        print(" This may take a few minutes. Please wait...")
+        print("="*60 + "\n")
+
+        check_for_updates(force_update=True)
+        return False
+
+    launcher_name = "run_translator.bat"
+    launcher_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), launcher_name)
+    logger.debug(f"Checking for launcher at: {launcher_path}")
+    
+    if os.path.exists(launcher_path):
+        logger.debug("Launcher found. Reading content...")
+        try:
+            with open(launcher_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+                
+                match = re.search(r'set\s+"LAUNCHER_VERSION=(\d+)"', content, re.IGNORECASE)
+                
+                if not match or int(match.group(1)) < LAUNCHER_VERSION:
+                    found_version = f"version {match.group(1)}" if match else "an old, unversioned one"
+                    reason = (f"The '{launcher_name}' launch file is outdated.\nFound {found_version}, but require version {LAUNCHER_VERSION} or higher.")
+                    logger.critical(f"Outdated launcher found! {reason}")
+                    _show_manual_update_dialog(reason)
+                else:
+                    logger.debug(f"Launcher check passed. Found version {match.group(1)}, which is up to date.")
+
+        except Exception as e:
+            logger.warning(f"Unable to read file {launcher_name} for verification: {e}")
+    else:
+        logger.warning(f"Launcher '{launcher_name}' not found. Skipping check.")
+
+    logger.debug("DEBUG: All startup verifications passed. No automatic fix needed.")
+    return False
+
     # VERSION_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/version.txt"
 
 def check_for_updates(force_update=False):
-    print(f"--- Entering check_for_updates (force_update is: {force_update}) ---")
     logger.debug(f"--- Entering check_for_updates (force_update is: {force_update}) ---")
 
     VERSION_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/version.txt"
 
     try:
         update_reason = ""
-        print(f"DEBUG: Initial 'update_reason' is: '{update_reason}'")
         logger.debug(f"Initial 'update_reason' is: '{update_reason}'")
 
         if force_update:
-            print("DEBUG: 'force_update' is True. Setting update reason for auto-fix.")
             logger.debug("'force_update' is True. Setting update reason for auto-fix.")
             update_reason = "Initial setup or critical library update required."
         else:
-            print("DEBUG: 'force_update' is False. Checking version online...")
             logger.debug("'force_update' is False. Checking version online...")
             response = requests.get(VERSION_URL, timeout=5)
             response.raise_for_status()
             latest_version = response.text.strip()
-            print(f"DEBUG: Fetched version: '{latest_version}'. Current version: '{APP_VERSION}'.")
             logger.debug(f"Fetched version: '{latest_version}'. Current version: '{APP_VERSION}'.")
             
             if latest_version > APP_VERSION:
-                print("DEBUG: New version found. Setting update reason.")
                 logger.debug("New version found. Setting update reason.")
                 update_reason = f"A new version ({latest_version}) of the translator is available!"
-        
-        print(f"--- Final check before action. 'update_reason' is: '{update_reason}' ---")
         logger.debug(f"--- Final check before action. 'update_reason' is: '{update_reason}' ---")
 
         if update_reason:
@@ -234,13 +206,11 @@ def check_for_updates(force_update=False):
                 if msg_box.exec() == QtWidgets.QMessageBox.Yes:
                     should_run_updater = True
                 else:
-                    print("DEBUG: User clicked 'No'. Update declined.")
                     logger.info("User declined the update.")
             else:
                 should_run_updater = True
             
             if should_run_updater:
-                print("DEBUG: Generating and launching the updater script.")
                 logger.info("Generating and launching the updater script.")
 
                 updater_script_content = """
@@ -356,21 +326,17 @@ DEL "%~f0"
                 updater_path = os.path.join(APP_DIR, "update.bat")
                 with open(updater_path, "w", encoding='utf-8') as f:
                     f.write(updater_script_content)
-                
                 print("DEBUG: Updater script 'update.bat' created. Launching and exiting application.")
 
                 subprocess.Popen(updater_path, shell=True)
                 sys.exit(0)
         else:
-            print("DEBUG: 'update_reason' is empty. Skipping update dialog.")
             logger.info("Application is up to date.")
             
     except requests.exceptions.RequestException as e:
         logger.warning(f"Could not check for updates (network error): {e}")
     except Exception as e:
         logger.error(f"An unexpected error occurred during the update check: {e}", exc_info=True)
-
-
 
 class JobSignals(QtCore.QObject):
     job_completed = QtCore.Signal(object, str, str)
@@ -3803,38 +3769,9 @@ class TranslatorApp(QtWidgets.QMainWindow):
         if event: 
             event.accept()
 
-if __name__ == '__main__':
-    QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_ShareOpenGLContexts)
-    app = QtWidgets.QApplication(sys.argv)
 
-    if rich_available:
-        custom_theme = Theme({ "log.time": "#29e97c", "logging.level.debug": "#11d9e7", "logging.level.info": "#0505f3", "logging.level.warning": "#FF00FF", "logging.level.error": "#FF0000", "logging.level.critical": "#FA8072"})
-        class CombinedHighlighter(ReprHighlighter):
-            def highlight(self, text):
-                super().highlight(text)
-                highlight_map = { r"(?i)\b(API)\b": "bold #ff2075", r"(?i)\b(Job|dispatch)\b": "bold #00ff88", r"(?i)\b(cache)\b": "italic #e786ff", r"(?i)\b(success|completed)\b": "bold #00af00", r"(?i)\b(failed|error)\b": "bold #ff0000", r"(?i)\b(warning)\b": "bold #ffaf00", r"(?i)\b(key|model)\b": "#d78700", r"(?i)\b(RPM|cooldown)\b": "#ecc1c1"}
-                for pattern, style in highlight_map.items(): 
-                    text.highlight_regex(pattern, style=style)
-
-        console = Console(theme=custom_theme)
-        rich_handler = RichHandler( console=console, rich_tracebacks=True, show_path=False, highlighter=CombinedHighlighter(), log_time_format="[%Y-%m-%d %H:%M:%S.%f]" )
-        logging.basicConfig(level="NOTSET", format="%(message)s", handlers=[rich_handler] )
-    else:
-        logging.basicConfig(level="INFO", format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt="[%H:%M:%S]")
-        logging.info("The «rich» library was not found. Logs will be displayed in standard format.")
-
-    load_settings()
-
-    needs_auto_fix = perform_startup_verification()
-    
-    print(f"--- Calling check_for_updates with force_update={needs_auto_fix} ---")
-    logger.info(f"--- Calling check_for_updates with force_update={needs_auto_fix} ---")
-
-    check_for_updates(force_update=needs_auto_fix)
-
-    from google import genai  #noqa: E402
-    from google.genai import types, errors  #noqa: E402
-    from google.api_core.exceptions import ResourceExhausted  #noqa: E402
+def run_main_app():
+    logger.info("--- Verification successful. Starting main application GUI. ---")
 
     app_log_level_str = current_settings.get("log_level", "INFO").upper()
     app_log_level_int = getattr(logging, app_log_level_str, logging.INFO)
@@ -3849,11 +3786,16 @@ if __name__ == '__main__':
     logging.getLogger('httpcore').setLevel(lib_level)
 
     icon_path_main = os.path.join(APP_DIR, 'icon.ico')
-    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'): 
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
         icon_path_main = os.path.join(sys._MEIPASS, 'icon.ico')
-    if os.path.exists(icon_path_main): 
+    
+    app = QtWidgets.QApplication.instance()
+    if not app:
+        app = QtWidgets.QApplication(sys.argv)
+
+    if os.path.exists(icon_path_main):
         app.setWindowIcon(QtGui.QIcon(icon_path_main))
-    else: 
+    else:
         app.setWindowIcon(QtGui.QIcon.fromTheme("applications-education-translation", QtGui.QIcon.fromTheme("accessories-dictionary")))
 
     try:
@@ -3863,7 +3805,7 @@ if __name__ == '__main__':
         current_stylesheet = app.styleSheet()
         app.setStyleSheet(current_stylesheet + tooltip_stylesheet)
         logger.info("Applied custom QToolTip stylesheet for dark theme.")
-    except Exception as e_theme: 
+    except Exception as e_theme:
         logger.warning(f"pyqtdarktheme not found or failed: {e_theme}. Using default OS theme.")
 
     if not current_settings.get("api_keys"):
@@ -3873,13 +3815,13 @@ if __name__ == '__main__':
         if s_dialog.exec() == QtWidgets.QDialog.Accepted:
             current_settings.update(s_dialog.get_settings())
             save_settings()
-            if not current_settings.get("api_keys"): 
-                QtWidgets.QMessageBox.critical(None,"API Key Error","API Key(s) not provided. Exiting.")
+            if not current_settings.get("api_keys"):
+                QtWidgets.QMessageBox.critical(None, "API Key Error", "API Key(s) not provided. Exiting.")
                 logger.critical("API Key(s) not provided after dialog. Exiting.")
                 sys.exit(1)
-            else: 
+            else:
                 logger.info("API key(s) provided via initial dialog.")
-        else: 
+        else:
             QtWidgets.QMessageBox.warning(None, "API Key Missing", "API Key(s) required. Exiting.")
             logger.warning("User cancelled API key input at startup. Exiting.")
             sys.exit(1)
@@ -3889,3 +3831,36 @@ if __name__ == '__main__':
     win.show()
     logger.info(f"Lorebook Gemini Translator v{APP_VERSION} started.")
     sys.exit(app.exec())
+
+
+
+if __name__ == '__main__':
+    if rich_available:
+        custom_theme = Theme({ "log.time": "#29e97c", "logging.level.debug": "#11d9e7", "logging.level.info": "#0505f3", "logging.level.warning": "#FF00FF", "logging.level.error": "#FF0000", "logging.level.critical": "#FA8072"})
+        class CombinedHighlighter(ReprHighlighter):
+            def highlight(self, text):
+                super().highlight(text)
+                highlight_map = { r"(?i)\b(API)\b": "bold #ff2075", r"(?i)\b(Job|dispatch)\b": "bold #00ff88", r"(?i)\b(cache)\b": "italic #e786ff", r"(?i)\b(success|completed)\b": "bold #00af00", r"(?i)\b(failed|error)\b": "bold #ff0000", r"(?i)\b(warning)\b": "bold #ffaf00", r"(?i)\b(key|model)\b": "#d78700", r"(?i)\b(RPM|cooldown)\b": "#ecc1c1"}
+                for pattern, style in highlight_map.items():
+                    text.highlight_regex(pattern, style=style)
+
+        console = Console(theme=custom_theme)
+        rich_handler = RichHandler( console=console, rich_tracebacks=True, show_path=False, highlighter=CombinedHighlighter(), log_time_format="[%Y-%m-%d %H:%M:%S.%f]" )
+        logging.basicConfig(level="NOTSET", format="%(message)s", handlers=[rich_handler] )
+    else:
+        logging.basicConfig(level="INFO", format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt="[%H:%M:%S]")
+        logging.info("The «rich» library was not found. Logs will be displayed in standard format.")
+
+    load_settings()
+
+    perform_startup_verification()
+
+    logger.info("--- Performing routine version check ---")
+
+    check_for_updates(force_update=False)
+
+    from google import genai
+    from google.genai import types, errors
+    from google.api_core.exceptions import ResourceExhausted
+
+    run_main_app()
