@@ -106,10 +106,11 @@ def _show_manual_update_dialog(reason):
 def perform_startup_verification():
     LAUNCHER_VERSION = 2
     logger.debug("--- Starting Startup Verification ---")
+
     logger.debug("--- Checking for outdated library import ---")
     try:
         import google.generativeai  #type: ignore #noqa: F401
-        logger.info("SUCCESS: Imported 'google.generativeai'. This is an outdated library.")
+        logger.warning("SUCCESS: Imported 'google.generativeai'. This is an outdated library.")
         logger.debug("An automatic fix is required. Forcing update...")
         check_for_updates(force_update=True)
         return True
@@ -119,22 +120,6 @@ def perform_startup_verification():
     except Exception as e:
         logger.critical(f"CRITICAL ERROR during outdated library check: {e}", exc_info=True)
         sys.exit(1)
-
-    logger.debug("--- Checking for required libraries (First Run Detection) ---")
-    try:
-        from google import genai  #noqa: F401
-    except ImportError as e:
-        print(f"INFO: Core library '{e.name}' not found. This is treated as a first run or broken environment.")
-        
-        print("\n" + "="*60)
-        print(" Welcome to Lorebook Gemini Translator!")
-        print(" This appears to be the first time running the application or the environment is incomplete.")
-        print(" The necessary libraries will now be installed automatically.")
-        print(" This may take a few minutes. Please wait...")
-        print("="*60 + "\n")
-
-        check_for_updates(force_update=True)
-        return False
 
     launcher_name = "run_translator.bat"
     launcher_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), launcher_name)
@@ -3739,7 +3724,9 @@ if __name__ == '__main__':
 
     load_settings()
 
-    perform_startup_verification()
+    if perform_startup_verification():
+        logger.info("Startup verification triggered a forced update. Exiting main script.")
+        sys.exit(0)
 
     logger.info("--- Performing routine version check ---")
 
