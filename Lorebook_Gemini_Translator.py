@@ -214,14 +214,19 @@ def check_for_updates(force_update=False):
                 logger.info("Generating and launching the updater script.")
 
                 updater_script_content = """
-@echo off
+@echo on
 SETLOCAL EnableDelayedExpansion
 chcp 65001 > nul
 set PYTHONIOENCODING=utf-8
 
+TITLE Lorebook Gemini Translator Updater (DEBUG MODE)
+
 echo ===============================================================
-echo =           Lorebook Gemini Translator Updater                =
+echo =      Lorebook Gemini Translator Updater (DEBUG MODE)        =
 echo ===============================================================
+echo.
+echo THIS WINDOW WILL PAUSE AFTER EACH STEP.
+echo PRESS ANY KEY TO CONTINUE.
 echo.
 
 set "BASE_DIR=%~dp0"
@@ -234,18 +239,20 @@ set "LAUNCHER_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Tran
 
 set "SKIP_LIST= pip setuptools wheel PySide6 pyqtdarktheme-fork requests"
 
-echo Starting update... Please wait. This window will close automatically.
-timeout /t 3 > nul
+echo Starting update...
+pause
 
 echo.
 echo [1/5] Verifying environment...
-%PIP% --version | findstr /I "venv" >nul
+%PIP% --version | findstr /I "venv"
 if errorlevel 1 (
     echo ERROR: pip command does not point to the local 'venv'. Update cancelled.
     pause
     exit /b
 )
 echo      ... Environment OK.
+pause
+
 echo.
 echo [2/5] Downloading new library requirements...
 curl -L -o "requirements.new.txt" "%REQUIREMENTS_URL%"
@@ -254,18 +261,19 @@ IF errorlevel 1 (
     pause
     exit /b
 )
+echo      ... Downloaded requirements.new.txt
+pause
+
 echo.
 echo [3/5] Finding obsolete packages to remove...
 %PIP% list --not-required --format=freeze > installed_toplevel.txt
 > to_uninstall.txt (
 )
-
 > req_names.txt (
   FOR /F "usebackq tokens=1 delims===<>>= " %%r IN ("requirements.new.txt") DO (
     echo %%r
   )
 )
-
 FOR /F "tokens=1 delims==" %%i IN (installed_toplevel.txt) DO (
     echo !SKIP_LIST! | findstr /I /L " %%i " >nul
     if not errorlevel 1 (
@@ -279,28 +287,37 @@ FOR /F "tokens=1 delims==" %%i IN (installed_toplevel.txt) DO (
 )
 del req_names.txt
 echo      ... Obsolete package check complete.
+pause
+
 echo.
 echo [4/5] Updating libraries...
+echo    - Uninstalling obsolete packages (if any)...
 set anything_uninstalled=false
 FOR /F "usebackq delims=" %%p IN ("to_uninstall.txt") DO (
     if not "%%p"=="" (
         echo    - Uninstalling %%p ...
-        %PIP% uninstall -y %%p >nul
+        %PIP% uninstall -y %%p
         set anything_uninstalled=true
     )
 )
 if !anything_uninstalled!==false (
     echo    - No obsolete packages to uninstall.
 )
+
 echo.
 echo    - Installing all required packages from requirements.new.txt...
-%PIP% install -r requirements.new.txt >nul
+echo    - THIS IS THE MOST LIKELY POINT OF FAILURE.
+%PIP% install -r requirements.new.txt
 if errorlevel 1 (
-    echo ERROR: Failed to install libraries. Update failed.
+    echo ##############################################################
+    echo ##  ERROR: Failed to install libraries. Update failed.      ##
+    echo ##############################################################
     pause
     exit /b
 )
 echo      ... Libraries are now up-to-date.
+pause
+
 echo.
 echo [5/5] Updating application files and restarting...
 ren "Lorebook_Gemini_Translator.py" "Lorebook_Gemini_Translator.py.bak" >nul 2>nul
@@ -314,14 +331,11 @@ del to_uninstall.txt >nul
 del requirements.new.txt >nul
 echo.
 echo Relaunching application...
-if exist "run_translator.bat" (
-    start "" "run_translator.bat"
-) else (
-    echo ERROR: Launcher not found. Please run manually.
-    pause
-)
+echo IF THIS WAS A REAL RUN, IT WOULD RESTART NOW.
+pause
 
-DEL "%~f0"
+REM We don't delete the script in debug mode
+REM DEL "%~f0"
 """
                 updater_path = os.path.join(APP_DIR, "update.bat")
                 with open(updater_path, "w", encoding='utf-8') as f:
