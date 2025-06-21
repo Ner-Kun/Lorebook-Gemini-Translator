@@ -170,29 +170,21 @@ def check_for_updates(force_update=False):
     logger.debug(f"--- Entering check_for_updates (force_update is: {force_update}) ---")
 
     VERSION_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/version.txt"
+    UPDATER_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/update.bat"
 
     try:
         update_reason = ""
-        logger.debug(f"Initial 'update_reason' is: '{update_reason}'")
-
         if force_update:
-            logger.debug("'force_update' is True. Setting update reason for auto-fix.")
             update_reason = "Initial setup or critical library update required."
         else:
-            logger.debug("'force_update' is False. Checking version online...")
             response = requests.get(VERSION_URL, timeout=5)
             response.raise_for_status()
             latest_version = response.text.strip()
-            logger.debug(f"Fetched version: '{latest_version}'. Current version: '{APP_VERSION}'.")
-            
             if latest_version > APP_VERSION:
-                logger.debug("New version found. Setting update reason.")
                 update_reason = f"A new version ({latest_version}) of the translator is available!"
-        logger.debug(f"--- Final check before action. 'update_reason' is: '{update_reason}' ---")
 
         if update_reason:
             should_run_updater = False
-
             if not force_update:
                 from PySide6 import QtWidgets
                 msg_box = QtWidgets.QMessageBox()
@@ -202,145 +194,25 @@ def check_for_updates(force_update=False):
                 msg_box.setInformativeText("Do you want to run the updater now?\nThe application will restart.")
                 msg_box.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
                 msg_box.setDefaultButton(QtWidgets.QMessageBox.Yes)
-                
                 if msg_box.exec() == QtWidgets.QMessageBox.Yes:
                     should_run_updater = True
                 else:
                     logger.info("User declined the update.")
             else:
                 should_run_updater = True
-            
+
             if should_run_updater:
-                logger.info("Generating and launching the updater script.")
+                logger.info("Downloading and launching the external updater script.")
 
-                updater_script_content = """
-@echo on
-SETLOCAL EnableDelayedExpansion
-chcp 65001 > nul
-set PYTHONIOENCODING=utf-8
-
-TITLE Lorebook Gemini Translator Updater (DEBUG MODE)
-
-echo ===============================================================
-echo =      Lorebook Gemini Translator Updater (DEBUG MODE)        =
-echo ===============================================================
-echo.
-echo THIS WINDOW WILL PAUSE AFTER EACH STEP.
-echo PRESS ANY KEY TO CONTINUE.
-echo.
-
-set "BASE_DIR=%~dp0"
-set "VENV_PY=%BASE_DIR%venv\\Scripts\\python.exe"
-set "PIP=%VENV_PY% -m pip"
-
-set "PY_FILE_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/Lorebook_Gemini_Translator.py"
-set "REQUIREMENTS_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/requirements.txt"
-set "LAUNCHER_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/run_translator.bat"
-
-set "SKIP_LIST= pip setuptools wheel PySide6 pyqtdarktheme-fork requests"
-
-echo Starting update...
-pause
-
-echo.
-echo [1/5] Verifying environment...
-%PIP% --version | findstr /I "venv"
-if errorlevel 1 (
-    echo ERROR: pip command does not point to the local 'venv'. Update cancelled.
-    pause
-    exit /b
-)
-echo      ... Environment OK.
-pause
-
-echo.
-echo [2/5] Downloading new library requirements...
-curl -L -o "requirements.new.txt" "%REQUIREMENTS_URL%"
-IF errorlevel 1 (
-    echo ERROR: Failed to download requirements.txt. Aborting.
-    pause
-    exit /b
-)
-echo      ... Downloaded requirements.new.txt
-pause
-
-echo.
-echo [3/5] Finding obsolete packages to remove...
-%PIP% list --not-required --format=freeze > installed_toplevel.txt
-> to_uninstall.txt (
-)
-> req_names.txt (
-  FOR /F "usebackq tokens=1 delims===<>>= " %%r IN ("requirements.new.txt") DO (
-    echo %%r
-  )
-)
-FOR /F "tokens=1 delims==" %%i IN (installed_toplevel.txt) DO (
-    echo !SKIP_LIST! | findstr /I /L " %%i " >nul
-    if not errorlevel 1 (
-    ) else (
-        findstr /L /I /X "%%i" req_names.txt >nul
-        if errorlevel 1 (
-            echo    - Marking obsolete package for removal: %%i
-            echo %%i>>to_uninstall.txt
-        )
-    )
-)
-del req_names.txt
-echo      ... Obsolete package check complete.
-pause
-
-echo.
-echo [4/5] Updating libraries...
-echo    - Uninstalling obsolete packages (if any)...
-set anything_uninstalled=false
-FOR /F "usebackq delims=" %%p IN ("to_uninstall.txt") DO (
-    if not "%%p"=="" (
-        echo    - Uninstalling %%p ...
-        %PIP% uninstall -y %%p
-        set anything_uninstalled=true
-    )
-)
-if !anything_uninstalled!==false (
-    echo    - No obsolete packages to uninstall.
-)
-
-echo.
-echo    - Installing all required packages from requirements.new.txt...
-echo    - THIS IS THE MOST LIKELY POINT OF FAILURE.
-%PIP% install -r requirements.new.txt
-if errorlevel 1 (
-    echo ##############################################################
-    echo ##  ERROR: Failed to install libraries. Update failed.      ##
-    echo ##############################################################
-    pause
-    exit /b
-)
-echo      ... Libraries are now up-to-date.
-pause
-
-echo.
-echo [5/5] Updating application files and restarting...
-ren "Lorebook_Gemini_Translator.py" "Lorebook_Gemini_Translator.py.bak" >nul 2>nul
-curl -L -o "Lorebook_Gemini_Translator.py" "%PY_FILE_URL%"
-ren "run_translator.bat" "run_translator.bat.bak" >nul 2>nul
-curl -L -o "run_translator.bat" "%LAUNCHER_URL%"
-echo.
-echo Cleaning up temporary files...
-del installed_toplevel.txt >nul
-del to_uninstall.txt >nul
-del requirements.new.txt >nul
-echo.
-echo Relaunching application...
-echo IF THIS WAS A REAL RUN, IT WOULD RESTART NOW.
-pause
-
-REM We don't delete the script in debug mode
-REM DEL "%~f0"
-"""
                 updater_path = os.path.join(APP_DIR, "update.bat")
-                with open(updater_path, "w", encoding='utf-8') as f:
-                    f.write(updater_script_content)
-                print("DEBUG: Updater script 'update.bat' created. Launching and exiting application.")
+                try:
+                    update_response = requests.get(UPDATER_URL, timeout=10)
+                    update_response.raise_for_status()
+                    with open(updater_path, "wb") as f:
+                        f.write(update_response.content)
+                except Exception as e:
+                    logger.error(f"Failed to download the updater script: {e}", exc_info=True)
+                    return
 
                 subprocess.Popen(updater_path, shell=True)
                 sys.exit(0)
