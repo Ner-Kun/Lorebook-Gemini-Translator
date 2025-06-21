@@ -45,7 +45,7 @@ echo      ... Cleanup complete.
 echo.
 echo [3/4] Updating libraries...
 echo      - Downloading new library requirements...
-curl -L -o "requirements.new.txt" "%REQUIREMENTS_URL%" >nul 2>nul
+curl -A "Mozilla/5.0" -L -o "requirements.new.txt" "%REQUIREMENTS_URL%" >nul 2>nul
 IF errorlevel 1 (
     echo ERROR: Failed to download requirements.txt. Aborting.
     pause
@@ -63,9 +63,9 @@ echo      ... Libraries are now up-to-date.
 echo.
 echo [4/4] Updating application files and restarting...
 ren "Lorebook_Gemini_Translator.py" "Lorebook_Gemini_Translator.py.bak" >nul 2>nul
-curl -L -o "Lorebook_Gemini_Translator.py" "%PY_FILE_URL%" >nul 2>nul
+curl -A "Mozilla/5.0" -L -o "Lorebook_Gemini_Translator.py" "%PY_FILE_URL%" >nul 2>nul
 ren "run_translator.bat" "run_translator.bat.bak" >nul 2>nul
-curl -L -o "run_translator.bat" "%LAUNCHER_URL%" >nul 2>nul
+curl -A "Mozilla/5.0" -L -o "run_translator.bat" "%LAUNCHER_URL%" >nul 2>nul
 echo.
 echo Relaunching application...
 if exist "run_translator.bat" (

@@ -5,6 +5,7 @@ set "LAUNCHER_VERSION=2"
 
 set "PY_FILE_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/Lorebook_Gemini_Translator.py"
 set "ICON_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/icon.ico"
+set "REQUIREMENTS_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/requirements.txt"
 
 set "BASE_DIR=%~dp0"
 set "VENV_DIR=%BASE_DIR%venv"
@@ -39,53 +40,41 @@ if not exist "%VENV_DIR%" (
         exit /b 1
     )
     echo      ... Virtual environment created.
-    echo      ... Installing bootstrap libraries...
     
     set "PIP=%PYTHON_IN_VENV% -m pip"
     
-    echo      ... Installing requests...
-    %PIP% install requests --quiet
+    echo      ... Downloading library requirements...
+    curl -A "Mozilla/5.0" -L -o "%BASE_DIR%requirements.txt" "%REQUIREMENTS_URL%"
     if errorlevel 1 (
-        echo ERROR: Failed to install 'requests'.
-        pause
-        exit /b 1
-    )
-    echo      ... Installing PySide6 (GUI framework)...
-    %PIP% install PySide6 --quiet
-    if errorlevel 1 (
-        echo ERROR: Failed to install 'PySide6'.
-        pause
-        exit /b 1
-    )
-    echo      ... Installing qdarktheme (GUI theme)...
-    %PIP% install pyqtdarktheme-fork --quiet
-    if errorlevel 1 (
-        echo ERROR: Failed to install 'qdarktheme'.
+        echo ERROR: Failed to download requirements.txt. Please check your internet connection.
         pause
         exit /b 1
     )
 
-    echo      ... Bootstrap complete.
-) else (
-    echo [2/4] Virtual environment found. Verifying bootstrap...
-    "%PYTHON_IN_VENV%" -m pip show PySide6 >nul 2>nul
+    echo      ... Installing all libraries. This may take several minutes...
+    %PIP% install -r "%BASE_DIR%requirements.txt" --quiet
     if errorlevel 1 (
-        echo      ... GUI framework missing. Re-installing 'PySide6'...
-        "%PYTHON_IN_VENV%" -m pip install PySide6 --quiet
+        echo ERROR: Failed to install required libraries from requirements.txt.
+        pause
+        exit /b 1
     )
+    del "%BASE_DIR%requirements.txt"
+    echo      ... Library installation complete.
+) else (
+    echo [2/4] Virtual environment found.
 )
 
 if not exist "%BASE_DIR%Lorebook_Gemini_Translator.py" (
     echo [3/4] Main script not found. Downloading for first-time setup...
     
-    curl -L -o "%BASE_DIR%Lorebook_Gemini_Translator.py" "%PY_FILE_URL%"
+    curl -A "Mozilla/5.0" -L -o "%BASE_DIR%Lorebook_Gemini_Translator.py" "%PY_FILE_URL%"
     if errorlevel 1 (
         echo ERROR: Failed to download the main script. Please check your internet connection.
         pause
         exit /b 1
     )
 
-    curl -L -o "%BASE_DIR%icon.ico" "%ICON_URL%" >nul 2>nul
+    curl -A "Mozilla/5.0" -L -o "%BASE_DIR%icon.ico" "%ICON_URL%" >nul 2>nul
     
     echo      ... Core files downloaded.
 ) else (
@@ -103,3 +92,4 @@ echo.
 echo ===============================================================
 echo The application has closed. This window can be closed now.
 echo.
+pause
