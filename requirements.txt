@@ -1,4 +1,5 @@
 PySide6
 google-genai
+google-api-core
 pyqtdarktheme-fork
 requests
