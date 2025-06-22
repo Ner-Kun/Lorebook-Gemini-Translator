@@ -28,8 +28,9 @@ def check_for_updates(force_update=False):
             try:
                 update_response = requests.get(UPDATER_URL, timeout=10)
                 update_response.raise_for_status()
-                with open(updater_path, "wb") as f:
-                    f.write(update_response.content)
+                script_content = update_response.content.decode('utf-8-sig')
+                with open(updater_path, "w", encoding="cp1252", errors="replace") as f:
+                    f.write(script_content)
             except Exception as e:
                 logger.error(f"Failed to download the updater script: {e}")
                 return
