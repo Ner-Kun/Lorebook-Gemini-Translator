@@ -59,144 +59,100 @@ default_settings = {
 current_settings = default_settings.copy()
 fh = None
 
-def _show_manual_update_dialog(reason):
-    print("CRITICAL: Entering _show_manual_update_dialog function.")
-    print(f"CRITICAL: Reason for manual update: {reason}")
-    print(f"INFO: Manual update required. Reason: {reason}")
+def run_updater():
+    logger.info("Downloading and launching the external updater script...")
     
-    from PySide6 import QtWidgets, QtCore, QtGui
+    UPDATER_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/update.bat"
+    updater_path = os.path.join(APP_DIR, "update.bat")
 
-    app = QtWidgets.QApplication.instance()
-    if not app:
-        app = QtWidgets.QApplication(sys.argv)
-
-    dialog = QtWidgets.QMessageBox()
-    dialog.setIcon(QtWidgets.QMessageBox.Critical)
-    dialog.setWindowTitle("Update Required")
-    dialog.setTextFormat(QtCore.Qt.RichText)
-    dialog.setText(
-        "<h2>Your run_translator.bat is outdated!</h2>"
-        "<p>To ensure the program works correctly, you MUST update your run_translator file.</p>"
-        f"<p><b>Reason:</b> {reason}</p>"
-        "<p>Please download the latest version from GitHub:</p>"
-        "<p><a href='https://github.com/Ner-Kun/Lorebook-Gemini-Translator/releases'>Click here to open the download page</a></p>"
-        "<p>Replace your old <b>run_translator.bat</b> with the new one you downloaded.</p>"
-        "<p>The application will now close.</p>")
     try:
-        icon_path = os.path.join(APP_DIR, 'icon.ico')
-        if os.path.exists(icon_path):
-            dialog.setWindowIcon(QtGui.QIcon(icon_path))
-    except Exception:
-        pass
+        update_response = requests.get(UPDATER_URL, timeout=10)
+        update_response.raise_for_status()
+        with open(updater_path, "wb") as f:
+            f.write(update_response.content)
 
-    dialog.exec()
-    sys.exit(1)
-
-def perform_startup_verification():
-    LAUNCHER_VERSION = 2
-    logger.info("--- Starting Startup Verification ---")
-
-    logger.info("--- Checking for outdated library import ---")
-    try:
-        import google.generativeai  #type: ignore #noqa: F401
-        logger.warning("SUCCESS: Imported 'google.generativeai'. This is an outdated library.")
-        logger.debug("An automatic fix is required. Forcing update...")
-        check_for_updates(force_update=True)
-        return True
-
-    except ImportError:
-        logger.info("OK. Unable to import «google.generativeai». The outdated library is not present.")
+        subprocess.Popen(updater_path, shell=True)
+        sys.exit(0)
+        
     except Exception as e:
-        logger.critical(f"CRITICAL ERROR during outdated library check: {e}", exc_info=True)
+        logger.error(f"FATAL: Failed to download or run the updater script: {e}", exc_info=True)
+        from PySide6 import QtWidgets
+        _ = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
+        msg_box = QtWidgets.QMessageBox()
+        msg_box.setIcon(QtWidgets.QMessageBox.Critical)
+        msg_box.setWindowTitle("Automatic Update Failed")
+        msg_box.setText("Could not start the automatic updater due to an error.")
+        msg_box.setInformativeText(f"Please update manually from the project's GitHub page.\n\nError: {e}")
+        msg_box.exec()
         sys.exit(1)
 
-    launcher_name = "run_translator.bat"
-    launcher_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), launcher_name)
-    logger.debug(f"Checking for launcher at: {launcher_path}")
-    
-    if os.path.exists(launcher_path):
-        logger.info("Launcher found. Reading content...")
-        try:
-            with open(launcher_path, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read()
-                
-                match = re.search(r'set\s+"LAUNCHER_VERSION=(\d+)"', content, re.IGNORECASE)
-                
-                if not match or int(match.group(1)) < LAUNCHER_VERSION:
-                    found_version = f"version {match.group(1)}" if match else "an old, unversioned one"
-                    reason = (f"The '{launcher_name}' launch file is outdated.\nFound {found_version}, but require version {LAUNCHER_VERSION} or higher.")
-                    logger.critical(f"Outdated launcher found! {reason}")
-                    _show_manual_update_dialog(reason)
-                else:
-                    logger.info(f"Launcher check passed. Found version {match.group(1)}, which is up to date.")
 
-        except Exception as e:
-            logger.warning(f"Unable to read file {launcher_name} for verification: {e}")
-    else:
-        logger.warning(f"Launcher '{launcher_name}' not found. Skipping check.")
-
-    logger.debug("DEBUG: All startup verifications passed. No automatic fix needed.")
-    return False
-
-    # VERSION_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/version.txt"
-
-def check_for_updates(force_update=False):
-    logger.debug(f"--- Entering check_for_updates (force_update is: {force_update}) ---")
-
+def check_and_trigger_update():
+    LOCAL_APP_VERSION = APP_VERSION
     VERSION_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/version.txt"
-    UPDATER_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/update.bat"
+    
+    logger.info("--- Verifying application and launcher versions... ---")
 
     try:
-        update_reason = ""
-        if force_update:
-            update_reason = "Initial setup or critical library update required."
-        else:
-            response = requests.get(VERSION_URL, timeout=5)
-            response.raise_for_status()
-            latest_version = response.text.strip()
-            if latest_version > APP_VERSION:
-                update_reason = f"A new version ({latest_version}) of the translator is available!"
-
-        if update_reason:
-            should_run_updater = False
-            if not force_update:
-                from PySide6 import QtWidgets
-                msg_box = QtWidgets.QMessageBox()
-                msg_box.setIcon(QtWidgets.QMessageBox.Information)
-                msg_box.setWindowTitle("Update Available")
-                msg_box.setText(update_reason)
-                msg_box.setInformativeText("Do you want to run the updater now?\nThe application will restart.")
-                msg_box.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
-                msg_box.setDefaultButton(QtWidgets.QMessageBox.Yes)
-                if msg_box.exec() == QtWidgets.QMessageBox.Yes:
-                    should_run_updater = True
-                else:
-                    logger.info("User declined the update.")
-            else:
-                should_run_updater = True
-
-            if should_run_updater:
-                logger.info("Downloading and launching the external updater script.")
-
-                updater_path = os.path.join(APP_DIR, "update.bat")
-                try:
-                    update_response = requests.get(UPDATER_URL, timeout=10)
-                    update_response.raise_for_status()
-                    with open(updater_path, "wb") as f:
-                        f.write(update_response.content)
-                except Exception as e:
-                    logger.error(f"Failed to download the updater script: {e}", exc_info=True)
-                    return
-
-                subprocess.Popen(updater_path, shell=True)
-                sys.exit(0)
-        else:
-            logger.info("Application is up to date.")
-            
+        response = requests.get(VERSION_URL, timeout=5)
+        response.raise_for_status()
+        content = response.text
+        
+        remote_versions = {}
+        for line in content.splitlines():
+            if '=' in line and not line.strip().startswith('#'):
+                key, value = line.strip().split('=', 1)
+                remote_versions[key.strip()] = value.strip()
+        
+        REMOTE_APP_VERSION = remote_versions.get("APP_VERSION", "0.0.0")
+        REMOTE_LAUNCHER_VERSION = int(remote_versions.get("LAUNCHER_VERSION", "0"))
+        
     except requests.exceptions.RequestException as e:
-        logger.warning(f"Could not check for updates (network error): {e}")
+        logger.warning(f"Could not check for updates (network error): {e}. Skipping check.")
+        return
     except Exception as e:
-        logger.error(f"An unexpected error occurred during the update check: {e}", exc_info=True)
+        logger.error(f"Failed to parse version file: {e}. Skipping check.")
+        return
+
+    try:
+        launcher_path = os.path.join(APP_DIR, "run_translator.bat")
+        if not os.path.exists(launcher_path):
+            local_launcher_version = 0
+        else:
+            with open(launcher_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+                match = re.search(r'set\s+"LAUNCHER_VERSION=(\d+)"', content, re.IGNORECASE)
+                local_launcher_version = int(match.group(1)) if match else 0
+    except Exception as e:
+        logger.warning(f"Could not read local launcher version: {e}. Assuming it's outdated.")
+        local_launcher_version = 0
+
+    update_reason = ""
+    if REMOTE_APP_VERSION > LOCAL_APP_VERSION:
+        update_reason = f"New application version available ({REMOTE_APP_VERSION})."
+    elif REMOTE_LAUNCHER_VERSION > local_launcher_version:
+        update_reason = f"A required launcher update is available (v{REMOTE_LAUNCHER_VERSION})."
+
+    if not os.path.exists(os.path.join(APP_DIR, "run_translator.bat")):
+        update_reason = "Launcher file 'run_translator.bat' is missing."
+
+    if update_reason:
+        logger.warning(f"Update required: {update_reason}")
+        from PySide6 import QtWidgets
+        _ = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
+        msg_box = QtWidgets.QMessageBox()
+        msg_box.setIcon(QtWidgets.QMessageBox.Information)
+        msg_box.setWindowTitle("Update Required")
+        msg_box.setText(update_reason)
+        msg_box.setInformativeText("The application will now close and run the updater.")
+        msg_box.setStandardButtons(QtWidgets.QMessageBox.Ok | QtWidgets.QMessageBox.Cancel)
+        if msg_box.exec() == QtWidgets.QMessageBox.Ok:
+            run_updater()
+        else:
+            logger.info("User cancelled the update. Exiting application to prevent issues.")
+            sys.exit(0)
+    else:
+        logger.info("OK. Application and launcher are up to date.")
 
 class JobSignals(QtCore.QObject):
     job_completed = QtCore.Signal(object, str, str)
@@ -1801,7 +1757,6 @@ class TranslationTab(QtWidgets.QWidget):
 
     @QtCore.Slot(int)
     def on_slider_value_changed(self, slider_index):
-        """Обновляет только текстовое поле во время движения слайдера."""
         if not self.possible_budget_values or slider_index >= len(self.possible_budget_values):
             return
         
@@ -1810,19 +1765,16 @@ class TranslationTab(QtWidgets.QWidget):
 
     @QtCore.Slot()
     def on_slider_released(self):
-        """Сохраняет настройки, когда пользователь отпустил слайдер."""
         self.update_thinking_budget_from_slider()
         logger.info(f"Thinking budget set to: {current_settings['thinking_budget_value']}")
         save_settings()
 
     def update_thinking_budget_from_slider(self):
-        """Вспомогательная функция для обновления настроек из состояния слайдера."""
         slider_index = self.thinking_budget_slider.value()
         if self.possible_budget_values and slider_index < len(self.possible_budget_values):
             current_settings['thinking_budget_value'] = self.possible_budget_values[slider_index]
 
     def update_model_specific_ui(self):
-        """Настраивает UI в зависимости от выбранной модели Gemini."""
         model_name = current_settings.get("gemini_model", "").lower()
         
         is_pro = "pro" in model_name
@@ -3707,13 +3659,7 @@ if __name__ == '__main__':
 
     load_settings()
 
-    if perform_startup_verification():
-        logger.info("Startup verification triggered a forced update. Exiting main script.")
-        sys.exit(0)
-
-    logger.info("--- Performing routine version check ---")
-
-    check_for_updates(force_update=False)
+    check_and_trigger_update()
 
     from google import genai
     from google.genai import types, errors
