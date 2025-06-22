@@ -99,6 +99,8 @@ if errorlevel 1 (
 )
 call :log_ok "Launcher updated successfully."
 echo.
+ц
+del "%BASE_DIR%Lorebook Gemini Translator.py" 2>nul
 
 call :log_step "4/4" "Finalizing update..."
 call :log_info "Relaunching the application..."
