@@ -15,24 +15,14 @@ import copy
 from PySide6 import QtWidgets, QtCore, QtGui 
 import qdarktheme
 
-try:
-    from rich.logging import RichHandler
-    from rich.console import Console
-    from rich.theme import Theme
-    from rich.highlighter import ReprHighlighter
-    rich_available = True
-except ImportError:
-    rich_available = False
+from rich.logging import RichHandler
+from rich.console import Console
+from rich.theme import Theme
+from rich.highlighter import ReprHighlighter
 
 
 
-if getattr(sys, 'frozen', False):
-    APP_DIR = os.path.dirname(sys.executable)
-elif __file__:
-    APP_DIR = os.path.dirname(os.path.abspath(__file__))
-else:
-    APP_DIR = os.getcwd()
-
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
 APP_VERSION = "0.1.0"
 SETTINGS_FILE = os.path.join(APP_DIR, "translator_settings.json")
 LOG_FILE = os.path.join(APP_DIR, "translator.log")
@@ -93,8 +83,7 @@ def _show_manual_update_dialog(reason):
         "<p>Replace your old <b>run_translator.bat</b> with the new one you downloaded.</p>"
         "<p>The application will now close.</p>")
     try:
-        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-        icon_path = os.path.join(base_path, 'icon.ico')
+        icon_path = os.path.join(APP_DIR, 'icon.ico')
         if os.path.exists(icon_path):
             dialog.setWindowIcon(QtGui.QIcon(icon_path))
     except Exception:
@@ -105,9 +94,9 @@ def _show_manual_update_dialog(reason):
 
 def perform_startup_verification():
     LAUNCHER_VERSION = 2
-    logger.debug("--- Starting Startup Verification ---")
+    logger.info("--- Starting Startup Verification ---")
 
-    logger.debug("--- Checking for outdated library import ---")
+    logger.info("--- Checking for outdated library import ---")
     try:
         import google.generativeai  #type: ignore #noqa: F401
         logger.warning("SUCCESS: Imported 'google.generativeai'. This is an outdated library.")
@@ -116,7 +105,7 @@ def perform_startup_verification():
         return True
 
     except ImportError:
-        logger.info("OK. Failed to import 'google.generativeai'. The outdated library is not present.")
+        logger.info("OK. Unable to import «google.generativeai». The outdated library is not present.")
     except Exception as e:
         logger.critical(f"CRITICAL ERROR during outdated library check: {e}", exc_info=True)
         sys.exit(1)
@@ -126,7 +115,7 @@ def perform_startup_verification():
     logger.debug(f"Checking for launcher at: {launcher_path}")
     
     if os.path.exists(launcher_path):
-        logger.debug("Launcher found. Reading content...")
+        logger.info("Launcher found. Reading content...")
         try:
             with open(launcher_path, 'r', encoding='utf-8', errors='ignore') as f:
                 content = f.read()
@@ -139,7 +128,7 @@ def perform_startup_verification():
                     logger.critical(f"Outdated launcher found! {reason}")
                     _show_manual_update_dialog(reason)
                 else:
-                    logger.debug(f"Launcher check passed. Found version {match.group(1)}, which is up to date.")
+                    logger.info(f"Launcher check passed. Found version {match.group(1)}, which is up to date.")
 
         except Exception as e:
             logger.warning(f"Unable to read file {launcher_name} for verification: {e}")
@@ -3657,8 +3646,6 @@ def run_main_app():
     logging.getLogger('httpcore').setLevel(lib_level)
 
     icon_path_main = os.path.join(APP_DIR, 'icon.ico')
-    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-        icon_path_main = os.path.join(sys._MEIPASS, 'icon.ico')
     
     app = QtWidgets.QApplication.instance()
     if not app:
@@ -3706,21 +3693,17 @@ def run_main_app():
 
 
 if __name__ == '__main__':
-    if rich_available:
-        custom_theme = Theme({ "log.time": "#29e97c", "logging.level.debug": "#11d9e7", "logging.level.info": "#0505f3", "logging.level.warning": "#FF00FF", "logging.level.error": "#FF0000", "logging.level.critical": "#FA8072"})
-        class CombinedHighlighter(ReprHighlighter):
-            def highlight(self, text):
-                super().highlight(text)
-                highlight_map = { r"(?i)\b(API)\b": "bold #ff2075", r"(?i)\b(Job|dispatch)\b": "bold #00ff88", r"(?i)\b(cache)\b": "italic #e786ff", r"(?i)\b(success|completed)\b": "bold #00af00", r"(?i)\b(failed|error)\b": "bold #ff0000", r"(?i)\b(warning)\b": "bold #ffaf00", r"(?i)\b(key|model)\b": "#d78700", r"(?i)\b(RPM|cooldown)\b": "#ecc1c1"}
-                for pattern, style in highlight_map.items():
-                    text.highlight_regex(pattern, style=style)
+    custom_theme = Theme({ "log.time": "#29e97c", "logging.level.debug": "#11d9e7", "logging.level.info": "#0505f3", "logging.level.warning": "#FF00FF", "logging.level.error": "#FF0000", "logging.level.critical": "#FA8072"})
+    class CombinedHighlighter(ReprHighlighter):
+        def highlight(self, text):
+            super().highlight(text)
+            highlight_map = { r"(?i)\b(API)\b": "bold #ff2075", r"(?i)\b(Job|dispatch)\b": "bold #00ff88", r"(?i)\b(cache)\b": "italic #e786ff", r"(?i)\b(success|completed)\b": "bold #00af00", r"(?i)\b(failed|error)\b": "bold #ff0000", r"(?i)\b(warning)\b": "bold #ffaf00", r"(?i)\b(key|model)\b": "#d78700", r"(?i)\b(RPM|cooldown)\b": "#ecc1c1"}
+            for pattern, style in highlight_map.items():
+                text.highlight_regex(pattern, style=style)
 
-        console = Console(theme=custom_theme)
-        rich_handler = RichHandler( console=console, rich_tracebacks=True, show_path=False, highlighter=CombinedHighlighter(), log_time_format="[%Y-%m-%d %H:%M:%S.%f]" )
-        logging.basicConfig(level="NOTSET", format="%(message)s", handlers=[rich_handler] )
-    else:
-        logging.basicConfig(level="INFO", format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt="[%H:%M:%S]")
-        logging.info("The «rich» library was not found. Logs will be displayed in standard format.")
+    console = Console(theme=custom_theme)
+    rich_handler = RichHandler( console=console, rich_tracebacks=True, show_path=False, highlighter=CombinedHighlighter(), log_time_format="[%Y-%m-%d %H:%M:%S.%f]" )
+    logging.basicConfig(level="NOTSET", format="%(message)s", handlers=[rich_handler] )
 
     load_settings()
 
