@@ -6,7 +6,6 @@ set "LAUNCHER_VERSION=2"
 set "APP_NAME=Lorebook Gemini Translator"
 
 set "PY_FILE_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/Lorebook_Gemini_Translator.py"
-set "ICON_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/icon.ico"
 
 set "REQUIREMENTS=PySide6 google-genai google-api-core pyqtdarktheme-fork rich"
 
@@ -97,9 +96,9 @@ if not exist "%BASE_DIR%Lorebook_Gemini_Translator.py" (
         call :log_error "Failed to download the main script. Please check your internet connection."
         goto fatal_error
     )
-    
-    call :log_info "Downloading icon..."
-    curl --silent -A "Mozilla/5.0" -L -o "%BASE_DIR%icon.ico" "%ICON_URL%" >nul 2>nul
+    call :log_ok "Main script downloaded successfully."
+    echo.
+
     call :log_ok "Core application files downloaded."
 ) else (
     call :log_ok "Application files found."
