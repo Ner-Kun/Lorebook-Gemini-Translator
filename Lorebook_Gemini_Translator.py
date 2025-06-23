@@ -968,42 +968,37 @@ class EditorTab(QtWidgets.QWidget):
         editor_button_layout.addWidget(self.editor_delete_btn)
         editor_left_layout.addLayout(editor_button_layout)
 
-        self.editor_right_panel = QtWidgets.QGroupBox("Edit Entry Details")
-        self.editor_right_panel.setEnabled(False)
-
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_widget = QtWidgets.QWidget()
-        editor_right_layout = QtWidgets.QVBoxLayout(scroll_widget)
-        scroll_area.setWidget(scroll_widget)
-        
-        main_editor_layout = QtWidgets.QVBoxLayout(self.editor_right_panel)
-        main_editor_layout.addWidget(scroll_area)
 
+        self.editor_form_widget = QtWidgets.QWidget()
+        scroll_area.setWidget(self.editor_form_widget)
+        editor_right_layout = QtWidgets.QVBoxLayout(self.editor_form_widget)
+        self.editor_form_widget.setEnabled(False)
         basic_info_group = QtWidgets.QGroupBox("Basic Information")
         basic_info_layout = QtWidgets.QFormLayout(basic_info_group)
-        
         self.editor_widgets['enabled_check'] = QtWidgets.QCheckBox("Entry Enabled")
         self.editor_widgets['comment_edit'] = QtWidgets.QLineEdit()
         self.editor_widgets['keys_edit'] = QtWidgets.QLineEdit()
         self.editor_widgets['keysecondary_edit'] = QtWidgets.QLineEdit()
-        
         self.editor_widgets['content_edit'] = FocusOutTextEdit()
         self.editor_widgets['content_edit'].setAcceptRichText(False)
-
-        basic_info_layout.addRow(self.editor_widgets['enabled_check'])
+        self.editor_save_status_label = QtWidgets.QLabel("Select an entry to edit.")
+        self.editor_save_status_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
+        first_row_layout = QtWidgets.QHBoxLayout()
+        first_row_layout.setContentsMargins(0,0,0,0)
+        first_row_layout.addWidget(self.editor_widgets['enabled_check'])
+        first_row_layout.addStretch()
+        first_row_layout.addWidget(self.editor_save_status_label)
+        basic_info_layout.addRow(first_row_layout)
         basic_info_layout.addRow("Title/Memo (Comment):", self.editor_widgets['comment_edit'])
         basic_info_layout.addRow("Primary Keywords:", self.editor_widgets['keys_edit'])
         basic_info_layout.addRow("Secondary Keywords:", self.editor_widgets['keysecondary_edit'])
-        
         editor_right_layout.addWidget(basic_info_group)
-
         editor_right_layout.addWidget(QtWidgets.QLabel("Content:"))
         editor_right_layout.addWidget(self.editor_widgets['content_edit'], stretch=1)
-        
         activation_group = QtWidgets.QGroupBox("Activation & Placement")
-        activation_layout = QtWidgets.QGridLayout(activation_group)
-
+        activation_layout = QtWidgets.QHBoxLayout(activation_group)
         self.editor_widgets['logic_combo'] = QtWidgets.QComboBox()
         self.editor_widgets['logic_combo'].addItems(self.editor_logic_map.values())
         self.editor_widgets['position_combo'] = QtWidgets.QComboBox()
@@ -1013,92 +1008,83 @@ class EditorTab(QtWidgets.QWidget):
         self.editor_widgets['order_edit'] = QtWidgets.QLineEdit()
         self.editor_widgets['probability_edit'] = QtWidgets.QLineEdit()
         self.editor_widgets['useProbability_check'] = QtWidgets.QCheckBox("Use Probability")
-
-        activation_layout.addWidget(QtWidgets.QLabel("Logic:"), 0, 0)
-        activation_layout.addWidget(self.editor_widgets['logic_combo'], 0, 1)
-        activation_layout.addWidget(QtWidgets.QLabel("Strategy:"), 0, 2)
-        activation_layout.addWidget(self.editor_widgets['strategy_combo'], 0, 3)
-
         self.editor_widgets['depth_edit'] = QtWidgets.QLineEdit()
         self.editor_widgets['depth_edit'].setPlaceholderText("Depth")
         self.editor_widgets['depth_edit'].setValidator(QtGui.QIntValidator(0, 999))
         self.editor_widgets['depth_edit'].setFixedWidth(60)
-
+        activation_layout.addWidget(QtWidgets.QLabel("Logic:"))
+        activation_layout.addWidget(self.editor_widgets['logic_combo'])
+        activation_layout.addWidget(QtWidgets.QLabel("Strategy:"))
+        activation_layout.addWidget(self.editor_widgets['strategy_combo'])
         position_layout = QtWidgets.QHBoxLayout()
+        position_layout.setContentsMargins(0,0,0,0)
+        position_layout.addWidget(QtWidgets.QLabel("Position:"))
         position_layout.addWidget(self.editor_widgets['position_combo'])
         position_layout.addWidget(self.editor_widgets['depth_edit'])
-        position_layout.setContentsMargins(0,0,0,0)
-
-        activation_layout.addWidget(QtWidgets.QLabel("Position:"), 1, 0)
-        activation_layout.addLayout(position_layout, 1, 1)
-        activation_layout.addWidget(QtWidgets.QLabel("Order:"), 1, 2)
-        activation_layout.addWidget(self.editor_widgets['order_edit'], 1, 3)
-
+        activation_layout.addLayout(position_layout)
+        activation_layout.addWidget(QtWidgets.QLabel("Order:"))
+        activation_layout.addWidget(self.editor_widgets['order_edit'])
+        activation_layout.addWidget(QtWidgets.QLabel("Trigger %:"))
+        activation_layout.addWidget(self.editor_widgets['probability_edit'])
+        activation_layout.addWidget(self.editor_widgets['useProbability_check'])
         self.editor_widgets['position_combo'].currentIndexChanged.connect(self._update_insertion_depth_visibility)
-
-        activation_layout.addWidget(QtWidgets.QLabel("Trigger %:"), 2, 0)
-        activation_layout.addWidget(self.editor_widgets['probability_edit'], 2, 1)
-        activation_layout.addWidget(self.editor_widgets['useProbability_check'], 2, 2, 1, 2)
-        
         editor_right_layout.addWidget(activation_group)
-
         scan_group = QtWidgets.QGroupBox("Scanning Options")
-        scan_layout = QtWidgets.QGridLayout(scan_group)
-
+        scan_layout = QtWidgets.QHBoxLayout(scan_group)
         self.editor_widgets['scanDepth_edit'] = QtWidgets.QLineEdit()
         self.editor_widgets['scanDepth_edit'].setPlaceholderText("Global")
         self.editor_widgets['scanDepth_edit'].setValidator(QtGui.QIntValidator(0, 9999))
-        
         self.editor_widgets['caseSensitive_combo'] = QtWidgets.QComboBox()
         self.editor_widgets['caseSensitive_combo'].addItems(self.editor_tri_state_map.values())
         self.editor_widgets['matchWholeWords_combo'] = QtWidgets.QComboBox()
         self.editor_widgets['matchWholeWords_combo'].addItems(self.editor_tri_state_map.values())
         self.editor_widgets['useGroupScoring_combo'] = QtWidgets.QComboBox()
         self.editor_widgets['useGroupScoring_combo'].addItems(self.editor_tri_state_map.values())
-
-        scan_layout.addWidget(QtWidgets.QLabel("Scan Depth:"), 0, 0)
-        scan_layout.addWidget(self.editor_widgets['scanDepth_edit'], 0, 1)
-        scan_layout.addWidget(QtWidgets.QLabel("Case Sensitive:"), 0, 2)
-        scan_layout.addWidget(self.editor_widgets['caseSensitive_combo'], 0, 3)
-        scan_layout.addWidget(QtWidgets.QLabel("Whole Words:"), 1, 0)
-        scan_layout.addWidget(self.editor_widgets['matchWholeWords_combo'], 1, 1)
-        scan_layout.addWidget(QtWidgets.QLabel("Group Scoring:"), 1, 2)
-        scan_layout.addWidget(self.editor_widgets['useGroupScoring_combo'], 1, 3)
+        scan_layout.addWidget(QtWidgets.QLabel("Scan Depth:"))
+        scan_layout.addWidget(self.editor_widgets['scanDepth_edit'])
+        scan_layout.addWidget(QtWidgets.QLabel("Case Sensitive:"))
+        scan_layout.addWidget(self.editor_widgets['caseSensitive_combo'])
+        scan_layout.addWidget(QtWidgets.QLabel("Whole Words:"))
+        scan_layout.addWidget(self.editor_widgets['matchWholeWords_combo'])
+        scan_layout.addWidget(QtWidgets.QLabel("Group Scoring:"))
+        scan_layout.addWidget(self.editor_widgets['useGroupScoring_combo'])
         editor_right_layout.addWidget(scan_group)
-
         advanced_group = QtWidgets.QGroupBox("Groups, Timing & Recursion")
-        advanced_layout = QtWidgets.QFormLayout(advanced_group)
-        
+        advanced_layout = QtWidgets.QGridLayout(advanced_group)
+        advanced_layout.setColumnStretch(1, 1)
+        advanced_layout.setColumnStretch(3, 1)
         group_layout = QtWidgets.QHBoxLayout()
         self.editor_widgets['group_edit'] = QtWidgets.QLineEdit()
         self.editor_widgets['groupOverride_check'] = QtWidgets.QCheckBox("Prioritize")
         group_layout.addWidget(self.editor_widgets['group_edit'])
         group_layout.addWidget(self.editor_widgets['groupOverride_check'])
-        advanced_layout.addRow("Inclusion Group:", group_layout)
-        
+        advanced_layout.addWidget(QtWidgets.QLabel("Inclusion Group:"), 0, 0)
+        advanced_layout.addLayout(group_layout, 0, 1, 1, 3)
         self.editor_widgets['groupWeight_edit'] = QtWidgets.QLineEdit()
         self.editor_widgets['groupWeight_edit'].setValidator(QtGui.QIntValidator())
-        advanced_layout.addRow("Group Weight:", self.editor_widgets['groupWeight_edit'])
-
-        timing_layout = QtWidgets.QHBoxLayout()
         self.editor_widgets['sticky_edit'] = QtWidgets.QLineEdit()
         self.editor_widgets['sticky_edit'].setValidator(QtGui.QIntValidator())
         self.editor_widgets['cooldown_edit'] = QtWidgets.QLineEdit()
         self.editor_widgets['cooldown_edit'].setValidator(QtGui.QIntValidator())
         self.editor_widgets['delay_edit'] = QtWidgets.QLineEdit()
         self.editor_widgets['delay_edit'].setValidator(QtGui.QIntValidator())
-        timing_layout.addWidget(QtWidgets.QLabel("Sticky:"))
-        timing_layout.addWidget(self.editor_widgets['sticky_edit'])
-        timing_layout.addWidget(QtWidgets.QLabel("Cooldown:"))
-        timing_layout.addWidget(self.editor_widgets['cooldown_edit'])
-        timing_layout.addWidget(QtWidgets.QLabel("Delay:"))
-        timing_layout.addWidget(self.editor_widgets['delay_edit'])
-        advanced_layout.addRow(timing_layout)
-
+        numeric_fields_layout = QtWidgets.QHBoxLayout()
+        numeric_fields_layout.addWidget(QtWidgets.QLabel("Group Weight:"))
+        numeric_fields_layout.addWidget(self.editor_widgets['groupWeight_edit'])
+        numeric_fields_layout.addWidget(QtWidgets.QLabel("Sticky:"))
+        numeric_fields_layout.addWidget(self.editor_widgets['sticky_edit'])
+        numeric_fields_layout.addWidget(QtWidgets.QLabel("Cooldown:"))
+        numeric_fields_layout.addWidget(self.editor_widgets['cooldown_edit'])
+        numeric_fields_layout.addWidget(QtWidgets.QLabel("Delay:"))
+        numeric_fields_layout.addWidget(self.editor_widgets['delay_edit'])
+        advanced_layout.addLayout(numeric_fields_layout, 1, 0, 1, 4)
+        separator = QtWidgets.QFrame()
+        separator.setFrameShape(QtWidgets.QFrame.HLine)
+        separator.setFrameShadow(QtWidgets.QFrame.Sunken)
+        advanced_layout.addWidget(separator, 2, 0, 1, 4)
         self.editor_widgets['addMemo_check'] = QtWidgets.QCheckBox("Add to context memory (addMemo)")
         self.editor_widgets['preventRecursion_check'] = QtWidgets.QCheckBox("Prevent further recursion")
         self.editor_widgets['excludeRecursion_check'] = QtWidgets.QCheckBox("Non-recursable (will not be activated by another)")
-
         delay_recursion_layout = QtWidgets.QHBoxLayout()
         self.editor_widgets['delayUntilRecursion_check'] = QtWidgets.QCheckBox("Delay until recursion")
         self.editor_widgets['delayRecursionLevel_edit'] = QtWidgets.QLineEdit()
@@ -1108,50 +1094,29 @@ class EditorTab(QtWidgets.QWidget):
         delay_recursion_layout.addWidget(self.editor_widgets['delayUntilRecursion_check'])
         delay_recursion_layout.addWidget(self.editor_widgets['delayRecursionLevel_edit'])
         delay_recursion_layout.addStretch()
-
+        advanced_layout.addWidget(self.editor_widgets['addMemo_check'], 3, 0, 1, 2)
+        advanced_layout.addWidget(self.editor_widgets['preventRecursion_check'], 3, 2, 1, 2)
+        advanced_layout.addWidget(self.editor_widgets['excludeRecursion_check'], 4, 0, 1, 2)
+        advanced_layout.addLayout(delay_recursion_layout, 4, 2, 1, 2)
         def toggle_recursion_level_field(checked):
             self.editor_widgets['delayRecursionLevel_edit'].setVisible(checked)
         self.editor_widgets['delayUntilRecursion_check'].toggled.connect(toggle_recursion_level_field)
-
         self.editor_widgets['automationId_edit'] = QtWidgets.QLineEdit()
-
-        advanced_layout.addRow(self.editor_widgets['addMemo_check'])
-        advanced_layout.addRow(self.editor_widgets['preventRecursion_check'])
-        advanced_layout.addRow(self.editor_widgets['excludeRecursion_check'])
-        advanced_layout.addRow(delay_recursion_layout)
-        advanced_layout.addRow("Automation ID:", self.editor_widgets['automationId_edit'])
-
-        for widget_name, widget in self.editor_widgets.items():
-            if isinstance(widget, (QtWidgets.QLineEdit, FocusOutTextEdit)):
-                widget.textChanged.connect(self._trigger_editor_debounce_save)
-                if isinstance(widget, QtWidgets.QLineEdit):
-                    widget.editingFinished.connect(self.force_save_entry_changes)
-                else:
-                    widget.focus_out.connect(self.force_save_entry_changes)
-            elif isinstance(widget, QtWidgets.QCheckBox):
-                widget.toggled.connect(self.force_save_entry_changes)
-            elif isinstance(widget, QtWidgets.QComboBox):
-                widget.currentIndexChanged.connect(self.force_save_entry_changes)
-
+        advanced_layout.addWidget(QtWidgets.QLabel("Automation ID:"), 5, 0)
+        advanced_layout.addWidget(self.editor_widgets['automationId_edit'], 5, 1, 1, 3)
         editor_right_layout.addWidget(advanced_group)
         editor_right_layout.addStretch()
-        
-        self.editor_save_status_label = QtWidgets.QLabel("Select an entry to edit.")
-        self.editor_save_status_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
-        editor_right_layout.addWidget(self.editor_save_status_label)
-
         editor_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
         editor_splitter.addWidget(editor_left_panel)
-        editor_splitter.addWidget(self.editor_right_panel)
+        editor_splitter.addWidget(scroll_area)
         editor_splitter.setSizes([400, 700])
-        
         editor_layout.addWidget(editor_splitter)
 
     def on_file_loaded(self):
         self.editor_refresh_listbox()
 
     def editor_set_panel_enabled(self, enabled):
-        self.editor_right_panel.setEnabled(enabled)
+            self.editor_form_widget.setEnabled(enabled)
 
     def editor_clear_form(self):
         for widget in self.editor_widgets.values():
@@ -1595,25 +1560,16 @@ class TranslationTab(QtWidgets.QWidget):
         language_panel_layout.addWidget(target_lang_group, stretch=1)
         translation_layout.addLayout(language_panel_layout)
 
-        top_panel_layout = QtWidgets.QHBoxLayout()
-        file_group = QtWidgets.QGroupBox("LORE-book File")
-        file_layout = QtWidgets.QHBoxLayout(file_group)
-        self.file_input = QtWidgets.QLineEdit()
-        self.file_input.setPlaceholderText("No LORE-book loaded. Use File -> New or Open.")
-        self.file_input.setReadOnly(True)
-        open_lorebook_btn = QtWidgets.QPushButton("Open LORE-book")
-        open_lorebook_btn.clicked.connect(self.main_window.browse_and_load)
-        file_layout.addWidget(open_lorebook_btn)
-        file_layout.addWidget(self.file_input)
-        top_panel_layout.addWidget(file_group, stretch=1)
-        translation_layout.addLayout(top_panel_layout)
-
         middle_v_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
         middle_v_splitter.setOpaqueResize(False)
         top_middle_h_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
         top_middle_h_splitter.setOpaqueResize(False)
         table_group = QtWidgets.QGroupBox("LORE Entries")
         table_layout = QtWidgets.QVBoxLayout(table_group)
+        self.translation_search_input = QtWidgets.QLineEdit()
+        self.translation_search_input.setPlaceholderText("Search UID, Original/Translated Key, Content...")
+        self.translation_search_input.textChanged.connect(self.filter_translation_table)
+        table_layout.addWidget(self.translation_search_input)
         self.table = QtWidgets.QTableWidget()
         self.table.setColumnCount(4)
         self.table.setHorizontalHeaderLabels(['UID', 'Original Key', f'Translated ({self.current_target_language if self.current_target_language else "N/A"})', 'Content Preview'])
@@ -1625,9 +1581,16 @@ class TranslationTab(QtWidgets.QWidget):
         top_middle_h_splitter.addWidget(table_group)
         edit_group = QtWidgets.QGroupBox("Edit Selected Translation")
         edit_layout = QtWidgets.QFormLayout(edit_group)
+        orig_key_layout = QtWidgets.QHBoxLayout()
+        orig_key_layout.setContentsMargins(0, 0, 0, 0)
         self.orig_label = QtWidgets.QLabel('')
         self.orig_label.setWordWrap(True)
-        edit_layout.addRow('Original Key:', self.orig_label)
+        orig_key_layout.addWidget(self.orig_label)
+        orig_key_layout.addStretch(1)
+        self.translator_save_status_label = QtWidgets.QLabel("<i>No entry selected</i>")
+        self.translator_save_status_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
+        orig_key_layout.addWidget(self.translator_save_status_label)
+        edit_layout.addRow('Original Key:', orig_key_layout)
 
         self.trans_edit_label = QtWidgets.QLabel(f'Translation ({self.current_target_language if self.current_target_language else "N/A"}):')
         self.trans_edit = QtWidgets.QLineEdit()
@@ -1681,14 +1644,13 @@ class TranslationTab(QtWidgets.QWidget):
         self.thinking_budget_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
 
         thinking_slider_layout.addWidget(thinking_label)
-        thinking_slider_layout.addWidget(self.thinking_budget_slider)
+        thinking_slider_layout.addWidget(self.thinking_budget_slider, 1)
         thinking_slider_layout.addWidget(self.thinking_budget_label)
 
         thinking_controls_layout.addWidget(self.enableModelThinkingCheck)
-        thinking_controls_layout.addWidget(self.thinking_widget_container)
-        thinking_controls_layout.addStretch()
-        
+        thinking_controls_layout.addWidget(self.thinking_widget_container, 1)
         edit_layout.addRow(thinking_controls_layout)
+
         self.possible_budget_values = []
 
         self.enableModelThinkingCheck.toggled.connect(self.on_toggle_enable_thinking)
@@ -1723,10 +1685,6 @@ class TranslationTab(QtWidgets.QWidget):
         translation_layout.addWidget(self.log_panel, stretch=1)
 
     def on_file_loaded(self):
-        if self.main_window.input_path:
-            self.file_input.setText(self.main_window.input_path)
-        else:
-            self.file_input.setText("New LORE-book (unsaved)")
         self.populate_table_data()
 
     def set_log_panel_visibility(self, visible):
@@ -2035,10 +1993,13 @@ class TranslationTab(QtWidgets.QWidget):
         self.current_row = row
         _uid, orig_k, trans_k, content_k = self.table_data[row]
         self.orig_label.setText(orig_k)
+        self.trans_edit.blockSignals(True)
         self.trans_edit.setText(trans_k)
+        self.trans_edit.blockSignals(False)
         self.full_content_display.setPlainText(content_k)
         self.current_orig_key_for_editor = orig_k
         self.current_translation_in_editor_before_change = trans_k
+        self.translator_save_status_label.setText("<b>Saved ✅</b>")
         logger.debug(f"Cell clicked R{row}, UID: '{_uid}', Orig: '{orig_k}', Trans: '{trans_k}'.")
 
     def apply_edited_translation(self):
@@ -2082,6 +2043,7 @@ class TranslationTab(QtWidgets.QWidget):
                 self.table.setItem(row_idx, 2, QtWidgets.QTableWidgetItem(new_trans_edit))
             
             self.current_translation_in_editor_before_change = new_trans_edit
+            self.translator_save_status_label.setText("<b>Applied ✅</b>")
 
             self.main_window.set_dirty_flag(True)
             
@@ -2284,6 +2246,7 @@ class TranslationTab(QtWidgets.QWidget):
     @QtCore.Slot()
     def _trigger_translator_debounce_save(self):
         if self.current_row is not None:
+            self.translator_save_status_label.setText("<i>Changes detected...</i>")
             self.translator_debounce_timer.start()
 
     def _create_debounce_timer(self, slot_function, interval=1000):
@@ -2309,7 +2272,7 @@ class TranslatorApp(QtWidgets.QMainWindow):
         self.qt_log_handler = None
         self.model_inspector_window = None
         self.thread_pool = QtCore.QThreadPool() 
-        logger.info(f"QThreadPool maxThreadCount: {self.thread_pool.maxThreadCount()}")
+        logger.debug(f"QThreadPool maxThreadCount: {self.thread_pool.maxThreadCount()}")
         
         self.pending_translation_jobs = collections.deque()
         self.active_translation_jobs = 0
@@ -2330,7 +2293,7 @@ class TranslatorApp(QtWidgets.QMainWindow):
         self.auto_save_timer = self._create_debounce_timer(self.save_all_changes, 3000)
         
         self.init_ui()
-        self.apply_rpm_settings_effects()
+        
         
         if self.translation_tab and self.translation_tab.get_log_text_edit():
             self.qt_log_handler = QtLogHandler(self.translation_tab.get_log_text_edit())
@@ -2842,75 +2805,86 @@ class TranslatorApp(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.critical(self, "Creation Error", f"Failed to create LORE-book file: {e}")
 
     def load_file(self, path):
-            if not path or not os.path.exists(path):
-                QtWidgets.QMessageBox.critical(self, 'Error', f'File not found: {path}')
-                logger.error(f'LORE-book not found: {path}')
-                return
-            if self.is_dirty:
-                self.save_all_changes()
-            
-            if self.cache_file_path and self.cache:
-                self.save_cache()
-                
-            self._cancel_batch_translation(silent=True)
-            
-            self.status_bar.showMessage(f"Loading {os.path.basename(path)}...")
-            QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
-            
-            try:
-                with open(path, 'r', encoding='utf-8') as f: 
-                    loaded_json = json.load(f)
+                if not path or not os.path.exists(path):
+                    QtWidgets.QMessageBox.critical(self, 'Error', f'File not found: {path}')
+                    logger.error(f'LORE-book not found: {path}')
+                    return
+                if self.is_dirty:
+                    self.save_all_changes()
 
-                if "entries" not in loaded_json or not isinstance(loaded_json['entries'], dict):
-                    raise ValueError("Invalid LORE-book format: Missing 'entries' dictionary.")
+                if self.cache_file_path and self.cache:
+                    self.save_cache()
 
-                self.data = loaded_json
-                self.input_path = path
+                self._cancel_batch_translation(silent=True)
 
-                self.cache = {}
-                base_name, _ = os.path.splitext(os.path.basename(self.input_path))
-                self.cache_file_path = os.path.join(os.path.dirname(self.input_path), f"{base_name}_translation_cache.json")
-                
-                logger.info(f"Active LORE-book: {self.input_path}")
-                logger.info(f"Project cache path set to: {self.cache_file_path}")
-
-                self.load_cache()
-
-                if 'entries' in self.data:
-                    for entry_data in self.data['entries'].values():
-                        self._ensure_entry_key_is_list(entry_data)
-                
-                logger.info(f"Loaded LORE-book. Entries: {len(self.data.get('entries', {}))}")
-                self.save_action.setEnabled(True)
-                self.export_action.setEnabled(bool(self.data))
-                self.update_recent_files(self.input_path)
-                self.update_recent_files_menu()
-                save_settings()
-            
-            except Exception as e:
-                QtWidgets.QMessageBox.critical(self, 'LORE-book Load Error', f'Failed to load file: {e}')
-                logger.error(f'LORE-book load error {path}: {e}', exc_info=True)
                 self.data = None
-                self.input_path = None
-                self.cache_file_path = None
                 self.cache = {}
-                self.save_action.setEnabled(False)
-                self.export_action.setEnabled(False)
+                self.cache_file_path = None
+                self.input_path = None
+                self.editor_tab.editor_clear_form()
+                self.editor_tab.editor_set_panel_enabled(False)
+                self.editor_tab.editor_refresh_listbox()
+                self.translation_tab.table_data = []
+                self.translation_tab.update_table_widget()
+                logger.info("Application state has been reset before loading new file.")
+                
+                self.status_bar.showMessage(f"Loading {os.path.basename(path)}...")
+                QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+                
+                try:
+                    with open(path, 'r', encoding='utf-8') as f: 
+                        loaded_json = json.load(f)
+
+                    if "entries" not in loaded_json or not isinstance(loaded_json['entries'], dict):
+                        raise ValueError("Invalid LORE-book format: Missing 'entries' dictionary.")
+
+                    self.data = loaded_json
+                    self.input_path = path
+
+                    self.cache = {}
+                    base_name, _ = os.path.splitext(os.path.basename(self.input_path))
+                    self.cache_file_path = os.path.join(os.path.dirname(self.input_path), f"{base_name}_translation_cache.json")
+                    
+                    logger.info(f"Active LORE-book: {self.input_path}")
+                    logger.info(f"Project cache path set to: {self.cache_file_path}")
+
+                    self.load_cache()
+
+                    if 'entries' in self.data:
+                        for entry_data in self.data['entries'].values():
+                            self._ensure_entry_key_is_list(entry_data)
+                    
+                    logger.info(f"Loaded LORE-book. Entries: {len(self.data.get('entries', {}))}")
+                    self.save_action.setEnabled(True)
+                    self.export_action.setEnabled(bool(self.data))
+                    self.update_recent_files(self.input_path)
+                    self.update_recent_files_menu()
+                    save_settings()
+                
+                except Exception as e:
+                    QtWidgets.QMessageBox.critical(self, 'LORE-book Load Error', f'Failed to load file: {e}')
+                    logger.error(f'LORE-book load error {path}: {e}', exc_info=True)
+                    self.data = None
+                    self.input_path = None
+                    self.cache_file_path = None
+                    self.cache = {}
+                    self.save_action.setEnabled(False)
+                    self.export_action.setEnabled(False)
+                    self.editor_tab.on_file_loaded()
+                    self.translation_tab.on_file_loaded()
+                    self.status_bar.showMessage("Error loading LORE-book.")
+                    return
+                finally:
+                    QtWidgets.QApplication.restoreOverrideCursor()
+
                 self.editor_tab.on_file_loaded()
                 self.translation_tab.on_file_loaded()
-                self.status_bar.showMessage("Error loading LORE-book.")
-                return
-            finally:
-                QtWidgets.QApplication.restoreOverrideCursor()
-
-            self.editor_tab.on_file_loaded()
-            self.translation_tab.on_file_loaded()
-            
-            base_name = os.path.basename(path)
-            self.setWindowTitle(f'Lorebook Gemini Translator v{APP_VERSION} - {base_name}')
-            self.status_bar.showMessage(f"Loaded {base_name}. {len(self.translation_tab.table_data)} displayable keys.")
-            self.translation_tab.update_model_specific_ui()
-            self.set_dirty_flag(False)
+                
+                base_name = os.path.basename(path)
+                self.setWindowTitle(f'Lorebook Gemini Translator v{APP_VERSION} - {base_name}')
+                self.status_bar.showMessage(f"Loaded {base_name}. {len(self.translation_tab.table_data)} displayable keys.")
+                self.translation_tab.update_model_specific_ui()
+                self.set_dirty_flag(False)
 
     def load_cache(self):
         self.cache = {}
@@ -3233,9 +3207,12 @@ class TranslatorApp(QtWidgets.QMainWindow):
                             item.setText(translated_text)
                         else: 
                             self.translation_tab.table.setItem(row_idx, 2, QtWidgets.QTableWidgetItem(translated_text))
-                        if self.translation_tab.current_row == row_idx and self.translation_tab.current_orig_key_for_editor == orig_key: 
+                        if self.translation_tab.current_row == row_idx and self.translation_tab.current_orig_key_for_editor == orig_key:
+                            self.translation_tab.trans_edit.blockSignals(True)
                             self.translation_tab.trans_edit.setText(translated_text)
+                            self.translation_tab.trans_edit.blockSignals(False)
                             self.translation_tab.current_translation_in_editor_before_change = translated_text
+                            self.translation_tab.translator_save_status_label.setText("<b>Saved ✅</b>")
         else:
             logger.error(f"Missing job_data in _handle_job_completed. UID:{uid},Orig:{orig_key},Tgt:{tgt_lang},Src:{src_lang}. Job:{job_data}")
         
@@ -3246,46 +3223,50 @@ class TranslatorApp(QtWidgets.QMainWindow):
 
 
     def _handle_job_failed(self, job_data, _error_str, _thinking_text, _full_error_details_str, exception_obj, extra_error_details):
-        if extra_error_details is None:
-            extra_error_details = {}
-        
-        self.active_translation_jobs -= 1
-        uid = job_data.get('uid_val_for_lookup', 'N/A')
-        used_key = job_data.get('api_key', 'UNKNOWN_KEY')
-        logger.info(f"Handling failed job for '{job_data.get('text_to_translate','Unknown')}' (UID: {uid}). In-flight jobs remaining:: {self.active_translation_jobs}")
-        
-        is_quota_error = isinstance(exception_obj, (ResourceExhausted, errors.ClientError)) and used_key != 'UNKNOWN_KEY' and "429" in str(exception_obj)
-        
-        if is_quota_error:
-            retry_delay_seconds = extra_error_details.get('retry_delay_seconds')
-            cooldown_duration_seconds = RPM_COOLDOWN_SECONDS
+            if extra_error_details is None:
+                extra_error_details = {}
             
-            if retry_delay_seconds is not None and retry_delay_seconds > 0:
-                cooldown_duration_seconds = retry_delay_seconds + 3
-                logger.info(f"Quota error for key {self._mask_api_key(used_key)}. API suggested retry_delay. Cooldown set to {cooldown_duration_seconds}s.")
-            else: 
-                logger.info(f"Quota error for key {self._mask_api_key(used_key)}. No API retry_delay found. Using default cooldown {cooldown_duration_seconds}s.")
+            self.active_translation_jobs -= 1
+            uid = job_data.get('uid_val_for_lookup', 'N/A')
+            used_key = job_data.get('api_key', 'UNKNOWN_KEY')
+            logger.info(f"Handling failed job for '{job_data.get('text_to_translate','Unknown')}' (UID: {uid}). In-flight jobs remaining:: {self.active_translation_jobs}")
             
-            self.api_key_cooldown_end_times[used_key] = time.monotonic() + cooldown_duration_seconds
+            is_quota_error = isinstance(exception_obj, (ResourceExhausted, errors.ClientError)) and used_key != 'UNKNOWN_KEY' and ("429" in str(exception_obj) or "RESOURCE_EXHAUSTED" in str(exception_obj).upper())
+            
+            if is_quota_error:
+                logger.warning(f"Quota error for key {self._mask_api_key(used_key)}. Re-queuing job for '{job_data.get('text_to_translate')}'.")
+                self.pending_translation_jobs.appendleft(job_data)
+                self.completed_jobs_for_progress -= 1
 
-            current_model = current_settings.get("gemini_model")
-            quota_value_from_error = extra_error_details.get('quota_value_from_error')
-            
-            if quota_value_from_error is not None:
-                discovered_limit_rpm = max(1, int(quota_value_from_error) - 1) 
-                current_effective_limit = self._get_effective_rpm_limit_for_model(current_model)
+                retry_delay_seconds = extra_error_details.get('retry_delay_seconds')
+                cooldown_duration_seconds = RPM_COOLDOWN_SECONDS
                 
-                if discovered_limit_rpm < current_effective_limit:
-                    self.discovered_rpm_limits[current_model] = discovered_limit_rpm
-                    logger.warning(f"Dynamically adjusted effective RPM for model '{current_model}' to {discovered_limit_rpm} (was {current_effective_limit}).")
-                    self.status_bar.showMessage(f"Adjusted RPM for {current_model} to {discovered_limit_rpm} (API limit).", 7000)
-            
-            self.update_rpm_display_and_check_cooldown()
+                if retry_delay_seconds is not None and retry_delay_seconds > 0:
+                    cooldown_duration_seconds = retry_delay_seconds + 3
+                    logger.info(f"API suggested retry_delay. Cooldown set to {cooldown_duration_seconds}s.")
+                else: 
+                    logger.info(f"No API retry_delay found. Using default cooldown {cooldown_duration_seconds}s.")
+                
+                self.api_key_cooldown_end_times[used_key] = time.monotonic() + cooldown_duration_seconds
 
-        self._update_progress_dialog()
+                current_model = current_settings.get("gemini_model")
+                quota_value_from_error = extra_error_details.get('quota_value_from_error')
+                
+                if quota_value_from_error is not None:
+                    discovered_limit_rpm = max(1, int(quota_value_from_error) - 1) 
+                    current_effective_limit = self._get_effective_rpm_limit_for_model(current_model)
+                    
+                    if discovered_limit_rpm < current_effective_limit:
+                        self.discovered_rpm_limits[current_model] = discovered_limit_rpm
+                        logger.warning(f"Dynamically adjusted effective RPM for model '{current_model}' to {discovered_limit_rpm} (was {current_effective_limit}).")
+                        self.status_bar.showMessage(f"Adjusted RPM for {current_model} to {discovered_limit_rpm} (API limit).", 7000)
+                
+                self.update_rpm_display_and_check_cooldown()
 
-        if not self.pending_translation_jobs and self.active_translation_jobs == 0:
-            self._finalize_batch_translation("completed (last active job failed)")
+            self._update_progress_dialog()
+
+            if not self.pending_translation_jobs and self.active_translation_jobs == 0:
+                self._finalize_batch_translation("completed (last active job failed)")
 
     def _update_progress_dialog(self):
         self.completed_jobs_for_progress += 1
@@ -3532,71 +3513,50 @@ class TranslatorApp(QtWidgets.QMainWindow):
             QtWidgets.QApplication.restoreOverrideCursor()
 
     def closeEvent(self, event: QtGui.QCloseEvent):
-        logger.info("Close event received.")
-        if self.is_dirty:
-            reply = QtWidgets.QMessageBox.question(self, "Confirm Exit",
-                "You have unsaved changes to the LORE-book structure. Are you sure you want to exit?",
-                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
-                QtWidgets.QMessageBox.No)
-            if reply == QtWidgets.QMessageBox.No:
-                if event: 
-                    event.ignore()
-                return
+            logger.info("Close event received.")
 
-        if self.active_translation_jobs > 0:
-            if QtWidgets.QMessageBox.question(self, "Confirm Exit", f"{self.active_translation_jobs} translation job(s) are still active. Exit anyway?", QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.No:
-                logger.info("Exit cancelled by user due to active jobs.")
-                if event: 
-                    event.ignore()
-                return
-        if self.is_dirty:
-            self.save_all_changes()
+            if self.active_translation_jobs > 0:
+                if QtWidgets.QMessageBox.question(self, "Confirm Exit", f"{self.active_translation_jobs} translation job(s) are still active. Exit anyway?", QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.No:
+                    logger.info("Exit cancelled by user due to active jobs.")
+                    if event: 
+                        event.ignore()
+                    return
 
-        self._cancel_batch_translation(silent=True)
-        
-        self.save_cache()
-        save_settings()
-        
-        logger.info("Settings and cache saved. Application closing.")
-        
-        if self.model_inspector_window: 
-            self.model_inspector_window.close()
-        
-        global fh
-        if fh:
-            try: 
-                logger.removeHandler(fh)
-                fh.close()
-                fh = None
-            except Exception as e_log: 
-                print(f"Error closing file log: {e_log}")
-        
-        if self.qt_log_handler:
-            try: 
-                logger.removeHandler(self.qt_log_handler)
-                self.qt_log_handler = None
-            except Exception as e_log_qt: 
-                print(f"Error removing Qt log handler: {e_log_qt}")
-        
-        if event: 
-            event.accept()
+            if self.is_dirty:
+                logger.info("Unsaved changes detected on exit. Saving automatically...")
+                self.save_all_changes()
+
+            self._cancel_batch_translation(silent=True)
+            
+            self.save_cache()
+            save_settings()
+            
+            logger.info("Settings and cache saved. Application closing.")
+            
+            if self.model_inspector_window: 
+                self.model_inspector_window.close()
+            
+            global fh
+            if fh:
+                try: 
+                    logger.removeHandler(fh)
+                    fh.close()
+                    fh = None
+                except Exception as e_log: 
+                    print(f"Error closing file log: {e_log}")
+            
+            if self.qt_log_handler:
+                try: 
+                    logger.removeHandler(self.qt_log_handler)
+                    self.qt_log_handler = None
+                except Exception as e_log_qt: 
+                    print(f"Error removing Qt log handler: {e_log_qt}")
+            
+            if event: 
+                event.accept()
 
 
 def run_main_app():
-    logger.info("--- Verification successful. Starting main application GUI. ---")
-
-    app_log_level_str = current_settings.get("log_level", "INFO").upper()
-    app_log_level_int = getattr(logging, app_log_level_str, logging.INFO)
-    if app_log_level_int > logging.DEBUG:
-        lib_level = logging.WARNING
-        logger.info("Application log level is INFO or higher. Suppressing library debug messages.")
-    else:
-        lib_level = logging.DEBUG
-        logger.info("Application log level is DEBUG. Showing library debug messages.")
-    logging.getLogger('google.api_core').setLevel(lib_level)
-    logging.getLogger('google.auth').setLevel(lib_level)
-    logging.getLogger('httpcore').setLevel(lib_level)
-
     icon_path_main = os.path.join(APP_DIR, 'icon.ico')
     
     app = QtWidgets.QApplication.instance()
@@ -3610,12 +3570,28 @@ def run_main_app():
 
     try:
         app.setStyleSheet(qdarktheme.load_stylesheet("dark"))
-        logger.info("Applied qdarktheme (dark).")
-        tooltip_stylesheet = """ QToolTip {color: #e0e0e0; background-color: #3c3c3c; border: 1px solid #555555; padding: 5px; border-radius: 4px;} """
+        logger.debug("Applied qdarktheme (dark).")
+
+        custom_stylesheet = """
+            QToolTip {
+                color: #e0e0e0; 
+                background-color: #3c3c3c; 
+                border: 1px solid #555555; 
+                padding: 5px; 
+                border-radius: 4px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top center;
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+        """
         current_stylesheet = app.styleSheet()
-        app.setStyleSheet(current_stylesheet + tooltip_stylesheet)
-        logger.info("Applied custom QToolTip stylesheet for dark theme.")
-    except Exception as e_theme:
+        app.setStyleSheet(current_stylesheet + custom_stylesheet)
+        logger.debug("Applied custom stylesheets for QToolTip and QGroupBox titles.")
+
+    except Exception as e_theme: 
         logger.warning(f"pyqtdarktheme not found or failed: {e_theme}. Using default OS theme.")
 
     if not current_settings.get("api_keys"):
@@ -3638,11 +3614,9 @@ def run_main_app():
         temp_parent.deleteLater()
 
     win = TranslatorApp()
-    win.show()
+    win.showMaximized()
     logger.info(f"Lorebook Gemini Translator v{APP_VERSION} started.")
     sys.exit(app.exec())
-
-
 
 if __name__ == '__main__':
     custom_theme = Theme({ "log.time": "#29e97c", "logging.level.debug": "#11d9e7", "logging.level.info": "#0505f3", "logging.level.warning": "#FF00FF", "logging.level.error": "#FF0000", "logging.level.critical": "#FA8072"})
@@ -3658,6 +3632,22 @@ if __name__ == '__main__':
     logging.basicConfig(level="NOTSET", format="%(message)s", handlers=[rich_handler] )
 
     load_settings()
+
+    app_log_level_str = current_settings.get("log_level", "INFO").upper()
+    app_log_level_int = getattr(logging, app_log_level_str, logging.INFO)
+    
+    if app_log_level_int > logging.DEBUG:
+        lib_level = logging.WARNING
+        logger.debug("Application log level is INFO or higher. Suppressing library debug messages.")
+    else:
+        lib_level = logging.DEBUG
+        logger.debug("Application log level is DEBUG. Showing library debug messages.")
+    
+
+    logging.getLogger('urllib3').setLevel(lib_level)
+    logging.getLogger('google.api_core').setLevel(lib_level)
+    logging.getLogger('google.auth').setLevel(lib_level)
+    logging.getLogger('httpcore').setLevel(lib_level)
 
     check_and_trigger_update()
 
