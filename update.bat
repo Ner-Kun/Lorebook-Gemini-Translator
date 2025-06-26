@@ -3,7 +3,7 @@ chcp 65001 > nul
 SETLOCAL EnableDelayedExpansion
 
 set "APP_NAME=Lorebook Gemini Translator"
-set "UPDATER_VERSION=0.1"
+set "UPDATER_VERSION=0.1.0"
 
 set "PY_FILE_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/Lorebook_Gemini_Translator.py"
 
