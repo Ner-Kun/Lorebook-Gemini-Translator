@@ -11,6 +11,7 @@ import collections
 import time
 import copy
 import base64
+from packaging.version import parse as parse_version
 
 from PySide6 import QtWidgets, QtCore, QtGui 
 import qdarktheme
@@ -22,8 +23,7 @@ from rich.highlighter import ReprHighlighter
 
 
 ICON_BASE64_DATA = """
-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"""
+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"""
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 APP_VERSION = "0.1.0"
 SETTINGS_FILE = os.path.join(APP_DIR, "translator_settings.json")
@@ -92,8 +92,7 @@ def run_updater():
 def check_and_trigger_update():
     LOCAL_APP_VERSION = APP_VERSION
     VERSION_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/version.txt"
-    
-    logger.info("--- Verifying application and launcher versions... ---")
+    logger.info("Verifying application and launcher versions...")
 
     try:
         response = requests.get(VERSION_URL, timeout=5)
@@ -107,7 +106,7 @@ def check_and_trigger_update():
                 remote_versions[key.strip()] = value.strip()
         
         REMOTE_APP_VERSION = remote_versions.get("APP_VERSION", "0.0.0")
-        REMOTE_LAUNCHER_VERSION = int(remote_versions.get("LAUNCHER_VERSION", "0"))
+        REMOTE_LAUNCHER_VERSION = remote_versions.get("LAUNCHER_VERSION", "0.0.0")
         
     except requests.exceptions.RequestException as e:
         logger.warning(f"Could not check for updates (network error): {e}. Skipping check.")
@@ -119,20 +118,19 @@ def check_and_trigger_update():
     try:
         launcher_path = os.path.join(APP_DIR, "run_translator.bat")
         if not os.path.exists(launcher_path):
-            local_launcher_version = 0
+            local_launcher_version = "0.0.0"
         else:
             with open(launcher_path, 'r', encoding='utf-8', errors='ignore') as f:
                 content = f.read()
-                match = re.search(r'set\s+"LAUNCHER_VERSION=(\d+)"', content, re.IGNORECASE)
-                local_launcher_version = int(match.group(1)) if match else 0
+                match = re.search(r'set\s+"LAUNCHER_VERSION=([\d\.]+)"', content, re.IGNORECASE)
+                local_launcher_version = match.group(1) if match else "0.0.0"
     except Exception as e:
         logger.warning(f"Could not read local launcher version: {e}. Assuming it's outdated.")
-        local_launcher_version = 0
-
+        local_launcher_version = "0.0.0"
     update_reason = ""
-    if REMOTE_APP_VERSION > LOCAL_APP_VERSION:
+    if parse_version(REMOTE_APP_VERSION) > parse_version(LOCAL_APP_VERSION):
         update_reason = f"New application version available ({REMOTE_APP_VERSION})."
-    elif REMOTE_LAUNCHER_VERSION > local_launcher_version:
+    elif parse_version(REMOTE_LAUNCHER_VERSION) > parse_version(local_launcher_version):
         update_reason = f"A required launcher update is available (v{REMOTE_LAUNCHER_VERSION})."
 
     if not os.path.exists(os.path.join(APP_DIR, "run_translator.bat")):
@@ -252,7 +250,236 @@ class TranslationJobRunnable(QtCore.QRunnable):
             extra_details = {'model_name_from_job': model_name_requested_for_this_job}
             self.signals.job_failed.emit(self.job_data, str(e), "N/A", f"Exception: {e}", e, extra_details)
 
+class AnimatableLabel(QtWidgets.QLabel):
+    def __init__(self, text, parent=None, min_size=20, color="#8be9fd"):
+        super().__init__(text, parent)
+        self._font_size = min_size
+        self._color = color
+        self.update_stylesheet()
 
+    @QtCore.Property(int)
+    def font_size(self):
+        return self._font_size
+
+    @font_size.setter
+    def font_size(self, size):
+        self._font_size = size
+        self.update_stylesheet()
+        
+    def update_stylesheet(self):
+        self.setStyleSheet(f"color: {self._color}; font-size: {self._font_size}px;")
+
+
+class WaveSpinner(QtWidgets.QWidget):
+    def __init__(self, parent=None, dot_count=5, dot_color="#8be9fd"):
+        super().__init__(parent)
+        self.dot_count = dot_count
+        self.animations = []
+        layout = QtWidgets.QHBoxLayout(self)
+        layout.setSpacing(10)
+        dot_char = "●"
+        min_size = 20
+        max_size = 35
+        for i in range(self.dot_count):
+            label = AnimatableLabel(dot_char, self, min_size=min_size, color=dot_color)
+            layout.addWidget(label)
+            anim_forward = QtCore.QPropertyAnimation(label, b"font_size")
+            anim_forward.setDuration(400)
+            anim_forward.setStartValue(min_size)
+            anim_forward.setEndValue(max_size)
+            anim_forward.setEasingCurve(QtCore.QEasingCurve.InOutCubic)
+            anim_backward = QtCore.QPropertyAnimation(label, b"font_size")
+            anim_backward.setDuration(400)
+            anim_backward.setStartValue(max_size)
+            anim_backward.setEndValue(min_size)
+            anim_backward.setEasingCurve(QtCore.QEasingCurve.InOutCubic)
+            seq_group = QtCore.QSequentialAnimationGroup()
+            seq_group.addAnimation(anim_forward)
+            seq_group.addAnimation(anim_backward)
+            parallel_group = QtCore.QParallelAnimationGroup(self)
+            delay_anim = QtCore.QVariantAnimation()
+            delay_anim.setDuration(i * 120)
+            parallel_group.addAnimation(delay_anim)
+            parallel_group.addAnimation(seq_group)
+            self.animations.append(parallel_group)
+    def start(self):
+        for anim in self.animations:
+            anim.setLoopCount(-1)
+            anim.start()
+    def stop(self):
+        for anim in self.animations:
+            anim.stop()
+
+class LoadingOverlay(QtWidgets.QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(parent.size())
+        self.background = QtWidgets.QWidget(self)
+        self.background.setStyleSheet("background-color: rgba(20, 20, 20, 180); border-radius: 10px;")
+        self.background.setGeometry(0, 0, self.width(), self.height())
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        layout.setSpacing(20)
+        self.spinner = WaveSpinner(self)
+        self.text_label = QtWidgets.QLabel("Loading...", self)
+        self.text_label.setStyleSheet("color: #e0e0e0; font-size: 16px; font-weight: bold;")
+        self.text_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.spinner)
+        layout.addWidget(self.text_label)
+        self.setLayout(layout)
+        self.hide()
+
+    def start_animation(self, text):
+        self.text_label.setText(text)
+        self.spinner.start()
+        self.show()
+
+    def stop_animation(self):
+        self.spinner.stop()
+        self.hide()
+
+    def resizeEvent(self, event):
+        self.setFixedSize(self.parent().size())
+        self.background.setGeometry(0, 0, self.width(), self.height())
+        super().resizeEvent(event)
+
+
+class AnimatedDialog(QtWidgets.QDialog):
+    def __init__(self, parent=None, duration=300):
+        super().__init__(parent)
+        self._animation_duration = duration
+        self.animation = None
+        self.opacity_effect = QtWidgets.QGraphicsOpacityEffect(self)
+        self.setGraphicsEffect(self.opacity_effect)
+        super().setVisible(False)
+
+    def setVisible(self, visible):
+        if visible:
+            self.opacity_effect.setOpacity(0.0)
+            super().setVisible(True)
+            self.animation = QtCore.QPropertyAnimation(self.opacity_effect, b"opacity")
+            self.animation.setDuration(self._animation_duration)
+            self.animation.setStartValue(0.0)
+            self.animation.setEndValue(1.0)
+            self.animation.setEasingCurve(QtCore.QEasingCurve.InQuad)
+            self.animation.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
+        else:
+            super().setVisible(False)
+
+class ShakeLineEdit(QtWidgets.QLineEdit):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.animation = QtCore.QPropertyAnimation(self, b"pos")
+
+    def keyPressEvent(self, event: QtGui.QKeyEvent):
+        validator = self.validator()
+        if not validator:
+            super().keyPressEvent(event)
+            return
+
+        if event.key() in (QtCore.Qt.Key_Backspace, QtCore.Qt.Key_Delete):
+            super().keyPressEvent(event)
+            return
+
+        if not event.text() or event.modifiers() & (QtCore.Qt.ControlModifier | QtCore.Qt.AltModifier):
+            super().keyPressEvent(event)
+            return
+            
+        future_text = self.text()[:self.cursorPosition()] + event.text() + self.text()[self.cursorPosition():]
+        
+        state, _, _ = validator.validate(future_text, 0)
+
+        if state == QtGui.QValidator.State.Acceptable or state == QtGui.QValidator.State.Intermediate:
+            super().keyPressEvent(event)
+        else:
+            self._shake()
+            event.accept()
+
+    def _shake(self):
+        UIAnimator.shake_widget(self)
+
+
+class UIAnimator:
+    @staticmethod
+    def shake_widget(widget: QtWidgets.QWidget, shake_amount: int = 4, duration_ms: int = 200):
+        existing_anim = widget.findChild(QtCore.QPropertyAnimation, "shake_anim")
+        if existing_anim and existing_anim.state() == QtCore.QAbstractAnimation.Running:
+            return
+        pos = widget.pos()
+        animation = QtCore.QPropertyAnimation(widget, b"pos", parent=widget)
+        animation.setObjectName("shake_anim")
+        animation.setDuration(duration_ms)
+        animation.setLoopCount(2)
+        animation.setKeyValueAt(0.0, pos)
+        animation.setKeyValueAt(0.1, pos + QtCore.QPoint(shake_amount, 0))
+        animation.setKeyValueAt(0.2, pos)
+        animation.setKeyValueAt(0.3, pos + QtCore.QPoint(-shake_amount, 0))
+        animation.setKeyValueAt(0.4, pos)
+        animation.setKeyValueAt(0.5, pos + QtCore.QPoint(shake_amount, 0))
+        animation.setKeyValueAt(0.6, pos)
+        animation.setKeyValueAt(0.7, pos + QtCore.QPoint(-shake_amount, 0))
+        animation.setKeyValueAt(0.8, pos)
+        animation.setKeyValueAt(0.9, pos + QtCore.QPoint(shake_amount, 0))
+        animation.setKeyValueAt(1.0, pos)
+        animation.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
+
+    @staticmethod
+    def flash_status_label(label: QtWidgets.QLabel, text: str, color: str = "#50fa7b", duration_ms: int = 2000):
+        label.setText(text)
+        label.setStyleSheet(f"color: {color};")
+        effect = label.graphicsEffect()
+        if not isinstance(effect, QtWidgets.QGraphicsOpacityEffect):
+            effect = QtWidgets.QGraphicsOpacityEffect(label)
+            label.setGraphicsEffect(effect)
+        old_anim = label.findChild(QtCore.QSequentialAnimationGroup)
+        if old_anim:
+            old_anim.stop()
+            old_anim.deleteLater()
+        seq_anim = QtCore.QSequentialAnimationGroup(label)
+        anim_in = QtCore.QPropertyAnimation(effect, b"opacity")
+        anim_in.setDuration(200)
+        anim_in.setStartValue(0.0)
+        anim_in.setEndValue(1.0)
+        anim_out = QtCore.QPropertyAnimation(effect, b"opacity")
+        anim_out.setDuration(500)
+        anim_out.setStartValue(1.0)
+        anim_out.setEndValue(0.0)
+        seq_anim.addAnimation(anim_in)
+        seq_anim.addPause(duration_ms)
+        seq_anim.addAnimation(anim_out)
+        seq_anim.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
+
+    @staticmethod
+    def toggle_visibility_animated(widget: QtWidgets.QWidget, show: bool, duration_ms: int = 200):
+        anim = QtCore.QPropertyAnimation(widget, b"maximumWidth", parent=widget)
+        anim.setDuration(duration_ms)
+        if show:
+            widget.show()
+            target_width = widget.sizeHint().width()
+            anim.setStartValue(0)
+            anim.setEndValue(target_width)
+        else:
+            start_width = widget.width()
+            anim.setStartValue(start_width)
+            anim.setEndValue(0)
+            anim.finished.connect(widget.hide)
+        anim.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
+    
+    @staticmethod
+    def toggle_visibility_animated_vertical(widget: QtWidgets.QWidget, show: bool, duration_ms: int = 200):
+        anim = QtCore.QPropertyAnimation(widget, b"maximumHeight", parent=widget)
+        anim.setDuration(duration_ms)
+        if show:
+            widget.show()
+            target_height = widget.sizeHint().height()
+            anim.setStartValue(0)
+            anim.setEndValue(target_height)
+        else:
+            start_height = widget.height()
+            anim.setStartValue(start_height)
+            anim.setEndValue(0)
+            anim.finished.connect(widget.hide)
+        anim.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
 
 def setup_logger():
     global fh
@@ -298,8 +525,9 @@ def load_settings():
                         elif isinstance(default_settings[key], str) and isinstance(loaded_s[key], str):
                             current_settings[key] = loaded_s[key]
                         elif isinstance(default_settings[key], list) and isinstance(loaded_s[key], list):
-                            if key not in ["api_keys"]:
-                                current_settings[key] = loaded_s[key]
+                            if all(isinstance(x, type(default_settings[key][0])) for x in loaded_s[key] if default_settings[key]):
+                                if key not in ["api_keys"]:
+                                    current_settings[key] = loaded_s[key]
                 if not isinstance(current_settings.get("api_keys"), list):
                     current_settings["api_keys"] = []
                 num_keys = len(current_settings["api_keys"])
@@ -383,7 +611,8 @@ class QtLogHandler(logging.Handler):
             self.widget.append(msg)
             self.widget.moveCursor(QtGui.QTextCursor.End)
 
-class ModelInspectorDialog(QtWidgets.QDialog):
+
+class ModelInspectorDialog(AnimatedDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Model Inspector")
@@ -464,7 +693,7 @@ class ModelInspectorDialog(QtWidgets.QDialog):
         self.hide()
         event.ignore()
 
-class ManageLanguagesDialog(QtWidgets.QDialog):
+class ManageLanguagesDialog(AnimatedDialog):
     def __init__(self, current_languages, language_type="Target", parent=None):
         super().__init__(parent)
         self.setWindowTitle(f"Manage {language_type} Languages")
@@ -521,7 +750,7 @@ class ManageLanguagesDialog(QtWidgets.QDialog):
         self.list_widget.addItems(self.languages)
     def get_languages(self): return self.languages
 
-class AboutDialog(QtWidgets.QDialog):
+class AboutDialog(AnimatedDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle(f"About Lorebook Gemini Translator v{APP_VERSION}")
@@ -557,63 +786,145 @@ class AboutDialog(QtWidgets.QDialog):
         layout.addLayout(button_layout)
 
 
-class ExportSettingsDialog(QtWidgets.QDialog):
-    def __init__(self, default_lore_name, available_target_langs, current_selected_target_lang, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Export LORE-book Settings")
-        flags = self.windowFlags() & ~QtCore.Qt.WindowContextHelpButtonHint
-        self.setWindowFlags(flags)
-        self.setMinimumSize(450, 300)
-        main_layout = QtWidgets.QVBoxLayout(self)
-        name_group_box = QtWidgets.QGroupBox("LORE-book Name")
-        name_layout = QtWidgets.QHBoxLayout(name_group_box)
-        self.loreNameEdit = QtWidgets.QLineEdit(default_lore_name)
-        name_layout.addWidget(self.loreNameEdit)
-        main_layout.addWidget(name_group_box)
-        lang_group_box = QtWidgets.QGroupBox("Select Languages to Include in Export")
-        lang_scroll_area = QtWidgets.QScrollArea()
-        lang_scroll_area.setWidgetResizable(True)
-        lang_widget_container = QtWidgets.QWidget()
-        self.lang_checkbox_layout = QtWidgets.QVBoxLayout(lang_widget_container)
-        lang_scroll_area.setWidget(lang_widget_container)
-        self.lang_checkboxes = {}
-        if not available_target_langs:
-            no_langs_label = QtWidgets.QLabel("No target languages configured. Please add languages in settings.")
-            no_langs_label.setStyleSheet("color: orange;")
-            self.lang_checkbox_layout.addWidget(no_langs_label)
-        else:
-            select_buttons_layout = QtWidgets.QHBoxLayout()
-            select_all_button = QtWidgets.QPushButton("Select All")
-            select_all_button.clicked.connect(self.select_all_langs)
-            deselect_all_button = QtWidgets.QPushButton("Deselect All")
-            deselect_all_button.clicked.connect(self.deselect_all_langs)
-            select_buttons_layout.addWidget(select_all_button)
-            select_buttons_layout.addWidget(deselect_all_button)
-            select_buttons_layout.addStretch()
-            self.lang_checkbox_layout.addLayout(select_buttons_layout)
-            for lang_name in sorted(available_target_langs):
-                checkbox = QtWidgets.QCheckBox(lang_name)
-                if lang_name == current_selected_target_lang: 
-                    checkbox.setChecked(True)
-                self.lang_checkboxes[lang_name] = checkbox
-                self.lang_checkbox_layout.addWidget(checkbox)
-            self.lang_checkbox_layout.addStretch()
+class ExportSettingsDialog(AnimatedDialog):
+    
+    def __init__(self, main_window_ref, default_lore_name, parent=None):
+            super().__init__(parent)
+            self.main_window = main_window_ref
+            self.all_entries = self.main_window.data.get('entries', {}) if self.main_window.data else {}
+            self.cache = self.main_window.cache
+            self.src_lang = self.main_window.translation_tab.current_source_language
+            self.available_target_langs = current_settings.get("target_languages", [])
+            self.current_selected_target_lang = self.main_window.translation_tab.current_target_language
+            self.setWindowTitle("Export LORE-book Settings")
+            flags = self.windowFlags() & ~QtCore.Qt.WindowContextHelpButtonHint
+            self.setWindowFlags(flags)
+            self.setMinimumSize(500, 500)
+            main_layout = QtWidgets.QVBoxLayout(self)
+            name_group_box = QtWidgets.QGroupBox("LORE-book Name")
+            name_layout = QtWidgets.QHBoxLayout(name_group_box)
+            self.loreNameEdit = QtWidgets.QLineEdit(default_lore_name)
+            name_layout.addWidget(self.loreNameEdit)
+            main_layout.addWidget(name_group_box)
+            lang_group_box = QtWidgets.QGroupBox("Select Languages to Include in Export")
+            lang_scroll_area = QtWidgets.QScrollArea()
+            lang_scroll_area.setWidgetResizable(True)
+            lang_scroll_area.setMinimumHeight(150)
+            lang_widget_container = QtWidgets.QWidget()
+            self.lang_grid_layout = QtWidgets.QGridLayout(lang_widget_container)
+            self.lang_grid_layout.setSpacing(10)
+            lang_scroll_area.setWidget(lang_widget_container)
+            self.lang_checkboxes = {}
 
-        lang_group_box_layout = QtWidgets.QVBoxLayout(lang_group_box)
-        lang_group_box_layout.addWidget(lang_scroll_area)
-        main_layout.addWidget(lang_group_box, stretch=1)
-        options_layout = QtWidgets.QHBoxLayout()
-        options_layout.addStretch()
-        self.includeOriginalsCheck = QtWidgets.QCheckBox("Include original keys")
-        self.includeOriginalsCheck.setChecked(False)
-        self.includeOriginalsCheck.setToolTip("If checked, original LORE keys will be included alongside selected translations.\n If unchecked (default), only selected translated keys will be included.\n (If no translation exists for an original key for any selected language, the original key will be kept.)")
-        self.includeOriginalsCheck.setEnabled(bool(available_target_langs))
-        options_layout.addWidget(self.includeOriginalsCheck)
-        main_layout.addLayout(options_layout)
-        self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
-        self.buttonBox.accepted.connect(self.accept_settings)
-        self.buttonBox.rejected.connect(self.reject)
-        main_layout.addWidget(self.buttonBox)
+            if not self.available_target_langs:
+                no_langs_label = QtWidgets.QLabel("No target languages configured. Please add languages in settings.")
+                no_langs_label.setStyleSheet("color: orange;")
+                self.lang_grid_layout.addWidget(no_langs_label, 0, 0)
+            else:
+                select_buttons_layout = QtWidgets.QHBoxLayout()
+                select_all_button = QtWidgets.QPushButton("Select All")
+                select_all_button.clicked.connect(self.select_all_langs)
+                deselect_all_button = QtWidgets.QPushButton("Deselect All")
+                deselect_all_button.clicked.connect(self.deselect_all_langs)
+                select_buttons_layout.addWidget(select_all_button)
+                select_buttons_layout.addWidget(deselect_all_button)
+                select_buttons_layout.addStretch()
+                self.lang_grid_layout.addLayout(select_buttons_layout, 0, 0, 1, 2)
+                sorted_langs = sorted(self.available_target_langs)
+                row, col = 1, 0
+                for lang_name in sorted_langs:
+                    checkbox = QtWidgets.QCheckBox(lang_name)
+                    if lang_name == self.current_selected_target_lang:
+                        checkbox.setChecked(True)
+                    self.lang_checkboxes[lang_name] = checkbox
+                    self.lang_grid_layout.addWidget(checkbox, row, col)
+
+                    col += 1
+                    if col > 1:
+                        col = 0
+                        row += 1
+
+                self.lang_grid_layout.setRowStretch(row, 1)
+
+            lang_group_box_layout = QtWidgets.QVBoxLayout(lang_group_box)
+            lang_group_box_layout.addWidget(lang_scroll_area)
+            main_layout.addWidget(lang_group_box)
+            options_group = QtWidgets.QGroupBox("Export Options")
+            options_layout = QtWidgets.QVBoxLayout(options_group)
+            self.includeOriginalsCheck = QtWidgets.QCheckBox("Include original keys")
+            self.includeOriginalsCheck.setChecked(True)
+            self.includeOriginalsCheck.setToolTip("If checked, original LORE keys will be included alongside selected translations.")
+            options_layout.addWidget(self.includeOriginalsCheck)
+            missing_trans_group = QtWidgets.QGroupBox("If translation for a key is missing")
+            missing_trans_layout = QtWidgets.QVBoxLayout(missing_trans_group)
+            self.leaveOriginalRadio = QtWidgets.QRadioButton("Leave original key (recommended)")
+            self.leaveOriginalRadio.setChecked(True)
+            self.skipKeyRadio = QtWidgets.QRadioButton("Skip key (do not include original or translation)")
+            missing_trans_layout.addWidget(self.leaveOriginalRadio)
+            missing_trans_layout.addWidget(self.skipKeyRadio)
+            options_layout.addWidget(missing_trans_group)
+            main_layout.addWidget(options_group)
+            preview_stats_group = QtWidgets.QGroupBox("Statistics")
+            preview_stats_layout = QtWidgets.QVBoxLayout(preview_stats_group)
+            self.stats_label = QtWidgets.QLabel("Calculating stats...")
+            self.stats_label.setWordWrap(True)
+            preview_stats_layout.addWidget(self.stats_label)
+            main_layout.addWidget(preview_stats_group, stretch=1)
+            self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+            self.buttonBox.accepted.connect(self.accept_settings)
+            self.buttonBox.rejected.connect(self.reject)
+            main_layout.addWidget(self.buttonBox)
+            for checkbox in self.lang_checkboxes.values():
+                checkbox.stateChanged.connect(self.update_ui_on_change)
+            self.includeOriginalsCheck.stateChanged.connect(self.update_ui_on_change)
+            self.leaveOriginalRadio.toggled.connect(self.update_ui_on_change)
+            self.update_ui_on_change()
+
+    def update_ui_on_change(self):
+            self.update_stats()
+
+    def update_stats(self):
+            logger.debug("Running Statistics Update")
+            total_entries = len(self.all_entries)
+            _, selected_languages, _, _ = self.get_export_settings()
+            
+            if not selected_languages:
+                total_original_keys = sum(len(entry.get('key', [])) for entry in self.all_entries.values())
+                stats_text = f"Will export <b>{total_entries}</b> entries with <b>{total_original_keys}</b> original/edited keys.\nNo languages selected for translation."
+                self.stats_label.setText(stats_text)
+                logger.debug("No languages selected. Exiting stats.")
+                return
+            total_translations_found = 0
+            translations_found_per_lang = {lang: 0 for lang in selected_languages}
+            total_keys_to_translate_count = sum(len(entry.get('key', [])) for entry in self.all_entries.values())
+            logger.debug(f"Total Keys To Translate (Rows): {total_keys_to_translate_count}")
+
+            for entry in self.all_entries.values():
+                uid = entry.get('uid')
+                original_keys = entry.get('key', [])
+                if not original_keys:
+                    continue
+                for key_text in original_keys:
+                    for lang in selected_languages:
+                        cache_key = self.main_window._generate_cache_key(uid, key_text, self.src_lang, lang)
+                        if cache_key in self.cache and self.cache[cache_key]:
+                            translations_found_per_lang[lang] += 1
+                            total_translations_found += 1
+            logger.debug(f"Translations found per language: {translations_found_per_lang}")
+            logger.debug(f"Total translations found overall: {total_translations_found}")
+            stats_text = f"Will export <b>{total_entries}</b> entries. A total of <b>{total_translations_found}</b> translations will be merged."
+            warnings = []
+            for lang, found_count in translations_found_per_lang.items():
+                missing_count = total_keys_to_translate_count - found_count
+                if missing_count >= 0:
+                    if missing_count > 0:
+                        warnings.append(f"<b>{missing_count}</b> missing translations for <b>{lang}</b>")
+                else:
+                    logger.warning(f"Negative missing count for {lang}! Total: {total_keys_to_translate_count}, Found: {found_count}")
+            if warnings:
+                stats_text += "\n<b>Warnings:</b> " + ". ".join(warnings)
+            self.stats_label.setText(stats_text)
+            logger.debug("Statistics Update Finished")
 
     def select_all_langs(self):
         for checkbox in self.lang_checkboxes.values():
@@ -627,8 +938,9 @@ class ExportSettingsDialog(QtWidgets.QDialog):
         if self.lang_checkboxes:
             selected_langs = [lang for lang, cb in self.lang_checkboxes.items() if cb.isChecked()]
             if not selected_langs:
-                QtWidgets.QMessageBox.warning(self, "No Languages Selected", "Please select at least one language to include in the export, or cancel.")
-                return
+                reply = QtWidgets.QMessageBox.question(self, "No Languages Selected", "You have not selected any languages for translation. The export will only contain original or edited keys. Proceed?", QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.No)
+                if reply == QtWidgets.QMessageBox.No:
+                    return
         self.accept()
 
     def get_export_settings(self):
@@ -637,13 +949,13 @@ class ExportSettingsDialog(QtWidgets.QDialog):
         if self.lang_checkboxes:
             selected_target_languages = [lang for lang, cb in self.lang_checkboxes.items() if cb.isChecked()]
         include_originals = self.includeOriginalsCheck.isChecked()
-        return lore_name, selected_target_languages, include_originals
+        missing_translation_rule = 'leave' if self.leaveOriginalRadio.isChecked() else 'skip'
+        return lore_name, selected_target_languages, include_originals, missing_translation_rule
 
-
-class SettingsDialog(QtWidgets.QDialog):
-    clear_cache_requested = QtCore.Signal()
+class SettingsDialog(AnimatedDialog):
     def __init__(self, settings_data, parent=None):
         super().__init__(parent)
+        self.cache_clear_was_requested_flag = False
         self.setWindowTitle("Application Settings")
         self.setMinimumWidth(550)
         flags = self.windowFlags() & ~QtCore.Qt.WindowContextHelpButtonHint
@@ -744,7 +1056,6 @@ class SettingsDialog(QtWidgets.QDialog):
         log_layout_main.addLayout(log_level_layout)
         log_layout_main.addStretch()
         tab_widget.addTab(log_tab, "Logging")
-        
         main_layout.addWidget(tab_widget)
         self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Cancel)
         self.buttonBox.accepted.connect(self.accept_settings)
@@ -876,8 +1187,11 @@ class SettingsDialog(QtWidgets.QDialog):
                 self.modelCombo.addItem(current_selected_model)
                 self.modelCombo.setCurrentText(current_selected_model)
 
-    def on_clear_cache_clicked(self): self.clear_cache_requested.emit()
-    logger.info("Cache clear requested from settings.")
+    def on_clear_cache_clicked(self):
+        self.cache_clear_was_requested_flag = True
+        QtWidgets.QMessageBox.information(self, "Cache Clear Queued",
+            "The cache for the active LORE-book will be cleared when you save the settings.")
+        logger.info("Cache clear was requested and queued from settings dialog.")
 
     def accept_settings(self):
         self.settings_data["api_keys"] = list(self.actual_api_keys_in_dialog)
@@ -899,12 +1213,14 @@ class SettingsDialog(QtWidgets.QDialog):
 
     def get_settings(self): return self.settings_data
 
+
 class FocusOutTextEdit(QtWidgets.QTextEdit):
     focus_out = QtCore.Signal()
 
     def focusOutEvent(self, event: QtGui.QFocusEvent):
         self.focus_out.emit()
         super().focusOutEvent(event)
+
 
 class EditorTab(QtWidgets.QWidget):
     search_term_changed = QtCore.Signal(str)
@@ -1007,13 +1323,15 @@ class EditorTab(QtWidgets.QWidget):
         self.editor_widgets['position_combo'].addItems(self.editor_position_map.values())
         self.editor_widgets['strategy_combo'] = QtWidgets.QComboBox()
         self.editor_widgets['strategy_combo'].addItems(self.editor_strategy_map.values())
-        self.editor_widgets['order_edit'] = QtWidgets.QLineEdit()
-        self.editor_widgets['probability_edit'] = QtWidgets.QLineEdit()
+        self.editor_widgets['order_edit'] = ShakeLineEdit()
+        self.editor_widgets['order_edit'].setValidator(QtGui.QIntValidator())
+        self.editor_widgets['probability_edit'] = ShakeLineEdit()
+        self.editor_widgets['probability_edit'].setValidator(QtGui.QIntValidator())
         self.editor_widgets['useProbability_check'] = QtWidgets.QCheckBox("Use Probability")
-        self.editor_widgets['depth_edit'] = QtWidgets.QLineEdit()
+        self.editor_widgets['depth_edit'] = ShakeLineEdit()
         self.editor_widgets['depth_edit'].setPlaceholderText("Depth")
         self.editor_widgets['depth_edit'].setValidator(QtGui.QIntValidator(0, 999))
-        self.editor_widgets['depth_edit'].setFixedWidth(60)
+        self.editor_widgets['depth_edit'].hide()
         activation_layout.addWidget(QtWidgets.QLabel("Logic:"))
         activation_layout.addWidget(self.editor_widgets['logic_combo'])
         activation_layout.addWidget(QtWidgets.QLabel("Strategy:"))
@@ -1033,7 +1351,7 @@ class EditorTab(QtWidgets.QWidget):
         editor_right_layout.addWidget(activation_group)
         scan_group = QtWidgets.QGroupBox("Scanning Options")
         scan_layout = QtWidgets.QHBoxLayout(scan_group)
-        self.editor_widgets['scanDepth_edit'] = QtWidgets.QLineEdit()
+        self.editor_widgets['scanDepth_edit'] = ShakeLineEdit()
         self.editor_widgets['scanDepth_edit'].setPlaceholderText("Global")
         self.editor_widgets['scanDepth_edit'].setValidator(QtGui.QIntValidator(0, 9999))
         self.editor_widgets['caseSensitive_combo'] = QtWidgets.QComboBox()
@@ -1062,13 +1380,13 @@ class EditorTab(QtWidgets.QWidget):
         group_layout.addWidget(self.editor_widgets['groupOverride_check'])
         advanced_layout.addWidget(QtWidgets.QLabel("Inclusion Group:"), 0, 0)
         advanced_layout.addLayout(group_layout, 0, 1, 1, 3)
-        self.editor_widgets['groupWeight_edit'] = QtWidgets.QLineEdit()
+        self.editor_widgets['groupWeight_edit'] = ShakeLineEdit()
         self.editor_widgets['groupWeight_edit'].setValidator(QtGui.QIntValidator())
-        self.editor_widgets['sticky_edit'] = QtWidgets.QLineEdit()
+        self.editor_widgets['sticky_edit'] = ShakeLineEdit()
         self.editor_widgets['sticky_edit'].setValidator(QtGui.QIntValidator())
-        self.editor_widgets['cooldown_edit'] = QtWidgets.QLineEdit()
+        self.editor_widgets['cooldown_edit'] = ShakeLineEdit()
         self.editor_widgets['cooldown_edit'].setValidator(QtGui.QIntValidator())
-        self.editor_widgets['delay_edit'] = QtWidgets.QLineEdit()
+        self.editor_widgets['delay_edit'] = ShakeLineEdit()
         self.editor_widgets['delay_edit'].setValidator(QtGui.QIntValidator())
         numeric_fields_layout = QtWidgets.QHBoxLayout()
         numeric_fields_layout.addWidget(QtWidgets.QLabel("Group Weight:"))
@@ -1089,7 +1407,7 @@ class EditorTab(QtWidgets.QWidget):
         self.editor_widgets['excludeRecursion_check'] = QtWidgets.QCheckBox("Non-recursable (will not be activated by another)")
         delay_recursion_layout = QtWidgets.QHBoxLayout()
         self.editor_widgets['delayUntilRecursion_check'] = QtWidgets.QCheckBox("Delay until recursion")
-        self.editor_widgets['delayRecursionLevel_edit'] = QtWidgets.QLineEdit()
+        self.editor_widgets['delayRecursionLevel_edit'] = ShakeLineEdit()
         self.editor_widgets['delayRecursionLevel_edit'].setPlaceholderText("Level (opt.)")
         self.editor_widgets['delayRecursionLevel_edit'].setValidator(QtGui.QIntValidator(1, 999))
         self.editor_widgets['delayRecursionLevel_edit'].setVisible(False)
@@ -1100,9 +1418,7 @@ class EditorTab(QtWidgets.QWidget):
         advanced_layout.addWidget(self.editor_widgets['preventRecursion_check'], 3, 2, 1, 2)
         advanced_layout.addWidget(self.editor_widgets['excludeRecursion_check'], 4, 0, 1, 2)
         advanced_layout.addLayout(delay_recursion_layout, 4, 2, 1, 2)
-        def toggle_recursion_level_field(checked):
-            self.editor_widgets['delayRecursionLevel_edit'].setVisible(checked)
-        self.editor_widgets['delayUntilRecursion_check'].toggled.connect(toggle_recursion_level_field)
+        self.editor_widgets['delayUntilRecursion_check'].toggled.connect(self.toggle_recursion_level_field_animated)
         self.editor_widgets['automationId_edit'] = QtWidgets.QLineEdit()
         advanced_layout.addWidget(QtWidgets.QLabel("Automation ID:"), 5, 0)
         advanced_layout.addWidget(self.editor_widgets['automationId_edit'], 5, 1, 1, 3)
@@ -1113,6 +1429,28 @@ class EditorTab(QtWidgets.QWidget):
         editor_splitter.addWidget(scroll_area)
         editor_splitter.setSizes([400, 700])
         editor_layout.addWidget(editor_splitter)
+        for widget_name in ['comment_edit', 'keys_edit', 'keysecondary_edit', 'order_edit', 
+                    'probability_edit', 'scanDepth_edit', 'group_edit', 'groupWeight_edit', 
+                    'sticky_edit', 'cooldown_edit', 'delay_edit', 'delayRecursionLevel_edit', 
+                    'automationId_edit', 'depth_edit']:
+            if widget_name in self.editor_widgets and isinstance(self.editor_widgets[widget_name], QtWidgets.QLineEdit):
+                self.editor_widgets[widget_name].textChanged.connect(self._trigger_editor_debounce_save)
+        self.editor_widgets['content_edit'].textChanged.connect(self._trigger_editor_debounce_save)
+        for widget_name in ['logic_combo', 'position_combo', 'strategy_combo', 'caseSensitive_combo', 
+                            'matchWholeWords_combo', 'useGroupScoring_combo']:
+            if widget_name in self.editor_widgets and isinstance(self.editor_widgets[widget_name], QtWidgets.QComboBox):
+                self.editor_widgets[widget_name].currentIndexChanged.connect(self._trigger_editor_debounce_save)
+        for widget_name in ['enabled_check', 'useProbability_check', 'groupOverride_check', 
+                            'addMemo_check', 'preventRecursion_check', 'excludeRecursion_check', 
+                            'delayUntilRecursion_check']:
+            if widget_name in self.editor_widgets and isinstance(self.editor_widgets[widget_name], QtWidgets.QCheckBox):
+                self.editor_widgets[widget_name].toggled.connect(self._trigger_editor_debounce_save)
+        self.editor_widgets['content_edit'].focus_out.connect(self.force_save_entry_changes)
+
+    @QtCore.Slot(bool)
+    def toggle_recursion_level_field_animated(self, checked):
+        widget = self.editor_widgets.get('delayRecursionLevel_edit')
+        UIAnimator.toggle_visibility_animated(widget, show=checked)
 
     def on_file_loaded(self):
         self.editor_refresh_listbox()
@@ -1281,7 +1619,7 @@ class EditorTab(QtWidgets.QWidget):
         self._update_insertion_depth_visibility(current_pos_index)
         
         self.editor_set_panel_enabled(True)
-        self.editor_save_status_label.setText("<b>Saved ✅</b>")
+        UIAnimator.flash_status_label(self.editor_save_status_label, "<b>Saved ✅</b>")
         logger.debug(f"Loaded entry '{entry_id}' fully into editor form.")
 
     def get_int_or_default(self, widget, default_val):
@@ -1298,13 +1636,11 @@ class EditorTab(QtWidgets.QWidget):
         if not self.selected_editor_entry_id or self.editor_active_entry_copy is None:
             return
         self.editor_debounce_timer.stop()
-
         self.main_window.set_dirty_flag()
-        
+        self.main_window.modified_entry_ids.add(self.selected_editor_entry_id)
         self.is_saving_from_editor = True
         try:
             entry = self.editor_active_entry_copy
-
             def get_tri_state_value(widget):
                 idx = widget.currentIndex()
                 if idx == 0: 
@@ -1316,24 +1652,19 @@ class EditorTab(QtWidgets.QWidget):
             entry['key'] = [k.strip() for k in self.editor_widgets['keys_edit'].text().split(',') if k.strip()]
             entry['keysecondary'] = [k.strip() for k in self.editor_widgets['keysecondary_edit'].text().split(',') if k.strip()]
             entry['content'] = self.editor_widgets['content_edit'].toPlainText()
-
             entry['selectiveLogic'] = self.editor_widgets['logic_combo'].currentIndex()
             entry['position'] = self.editor_widgets['position_combo'].currentIndex()
             strategy_idx = self.editor_widgets['strategy_combo'].currentIndex()
             entry['constant'] = (strategy_idx == 1)
             entry['vectorized'] = (strategy_idx == 2)
             entry['order'] = self.get_int_or_default(self.editor_widgets['order_edit'], 100)
-            
             entry['depth'] = self.get_int_or_default(self.editor_widgets['depth_edit'], None)
-            
             entry['probability'] = self.get_int_or_default(self.editor_widgets['probability_edit'], 100)
             entry['useProbability'] = self.editor_widgets['useProbability_check'].isChecked()
-
             entry['scanDepth'] = self.get_int_or_default(self.editor_widgets['scanDepth_edit'], None)
             entry['caseSensitive'] = get_tri_state_value(self.editor_widgets['caseSensitive_combo'])
             entry['matchWholeWords'] = get_tri_state_value(self.editor_widgets['matchWholeWords_combo'])
             entry['useGroupScoring'] = get_tri_state_value(self.editor_widgets['useGroupScoring_combo'])
-
             entry['group'] = self.editor_widgets['group_edit'].text().strip()
             entry['groupOverride'] = self.editor_widgets['groupOverride_check'].isChecked()
             entry['groupWeight'] = self.get_int_or_default(self.editor_widgets['groupWeight_edit'], 100)
@@ -1363,13 +1694,11 @@ class EditorTab(QtWidgets.QWidget):
             self.main_window.data['entries'][self.selected_editor_entry_id] = self.editor_active_entry_copy
             
             logger.debug(f"Applied changes for entry ID '{self.selected_editor_entry_id}' to in-memory data.")
-            self.editor_save_status_label.setText("<b>Applied ✅</b>")
+            UIAnimator.flash_status_label(self.editor_save_status_label, "<b>Applied ✅</b>")
 
             id_to_reselect = self.selected_editor_entry_id
-
             self.editor_refresh_listbox(self.editor_search_input.text())
             self.main_window.translation_tab.populate_table_data()
-
             if id_to_reselect:
                 self._select_entry_in_list_by_uid(id_to_reselect)
         finally:
@@ -1380,9 +1709,7 @@ class EditorTab(QtWidgets.QWidget):
         if not self.main_window.data: 
             QtWidgets.QMessageBox.warning(self, "Action Failed", "Please load or create a LORE-book before adding entries.")
             return
-
         new_uid = self._get_free_uid()
-
         new_entry = {
                     "uid": new_uid, "key": [], "keysecondary": [], "comment": "New Entry", "content": "",
                     "constant": False, "vectorized": False, "selective": True, "selectiveLogic": 0,
@@ -1475,7 +1802,7 @@ class EditorTab(QtWidgets.QWidget):
         if not self.selected_editor_entry_id:
             QtWidgets.QMessageBox.warning(self, "Action Failed", "Please select an entry to duplicate.")
             return
-
+        self.force_save_entry_changes()
         original_entry = copy.deepcopy(self.main_window.data['entries'][self.selected_editor_entry_id])
         
         new_uid = self._get_free_uid()
@@ -1496,15 +1823,14 @@ class EditorTab(QtWidgets.QWidget):
 
     @QtCore.Slot(int)
     def _update_insertion_depth_visibility(self, index):
-        is_directive_position = index in [6, 7, 8]
-        
-        if 'depth_edit' in self.editor_widgets:
-            self.editor_widgets['depth_edit'].setVisible(is_directive_position)
+        widget = self.editor_widgets.get('depth_edit')
+        is_visible = index in [6, 7, 8]
+        UIAnimator.toggle_visibility_animated(widget, show=is_visible)
 
     @QtCore.Slot()
     def _trigger_editor_debounce_save(self):
         if self.selected_editor_entry_id is not None:
-            self.editor_save_status_label.setText("<i>Changes detected...</i>")
+            UIAnimator.flash_status_label(self.editor_save_status_label, "⚠️ <i>Changes detected...</i>", color="#f1fa8c", duration_ms=800)
             self.editor_debounce_timer.start()
 
     def _create_debounce_timer(self, slot_function, interval=1000):
@@ -1575,6 +1901,8 @@ class TranslationTab(QtWidgets.QWidget):
         self.table = QtWidgets.QTableWidget()
         self.table.setColumnCount(4)
         self.table.setHorizontalHeaderLabels(['UID', 'Original Key', f'Translated ({self.current_target_language if self.current_target_language else "N/A"})', 'Content Preview'])
+        self.table.verticalHeader().setHighlightSections(False)
+        self.table.horizontalHeader().setHighlightSections(False)
         self.table.cellClicked.connect(self.on_cell_click)
         self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
@@ -1690,7 +2018,22 @@ class TranslationTab(QtWidgets.QWidget):
         self.populate_table_data()
 
     def set_log_panel_visibility(self, visible):
-        self.log_panel.setVisible(visible)
+        if not hasattr(self, 'opacity_effect'):
+            self.opacity_effect = QtWidgets.QGraphicsOpacityEffect(self.log_panel)
+            self.log_panel.setGraphicsEffect(self.opacity_effect)
+        self.animation = QtCore.QPropertyAnimation(self.opacity_effect, b"opacity")
+        self.animation.setDuration(300)
+
+        if visible:
+            self.log_panel.show()
+            self.animation.setStartValue(0.0)
+            self.animation.setEndValue(1.0)
+        else:
+            self.animation.finished.connect(self.log_panel.hide)
+            self.animation.setStartValue(1.0)
+            self.animation.setEndValue(0.0)
+
+        self.animation.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
 
     def get_log_text_edit(self):
         return self.log_text_edit
@@ -1703,7 +2046,7 @@ class TranslationTab(QtWidgets.QWidget):
 
     @QtCore.Slot(bool)
     def on_toggle_enable_thinking(self, checked):
-        self.thinking_widget_container.setVisible(checked)
+        UIAnimator.toggle_visibility_animated_vertical(self.thinking_widget_container, show=checked)
         current_settings["enable_model_thinking"] = checked
         
         if not checked:
@@ -1713,7 +2056,6 @@ class TranslationTab(QtWidgets.QWidget):
         
         logger.info(f"'Enable Model Thinking' set to: {checked}. Effective budget: {current_settings['thinking_budget_value']}")
         save_settings()
-
 
     @QtCore.Slot(int)
     def on_slider_value_changed(self, slider_index):
@@ -1771,7 +2113,7 @@ class TranslationTab(QtWidgets.QWidget):
         self.thinking_budget_slider.setValue(target_index)
         self.on_slider_value_changed(target_index)
 
-        self.thinking_widget_container.setVisible(self.enableModelThinkingCheck.isChecked())
+        UIAnimator.toggle_visibility_animated_vertical(self.thinking_widget_container, show=self.enableModelThinkingCheck.isChecked())
 
     def _update_target_language_combo(self):
         self.target_lang_combo.blockSignals(True)
@@ -2001,7 +2343,7 @@ class TranslationTab(QtWidgets.QWidget):
         self.full_content_display.setPlainText(content_k)
         self.current_orig_key_for_editor = orig_k
         self.current_translation_in_editor_before_change = trans_k
-        self.translator_save_status_label.setText("<b>Saved ✅</b>")
+        UIAnimator.flash_status_label(self.translator_save_status_label, "<b>Saved ✅</b>")
         logger.debug(f"Cell clicked R{row}, UID: '{_uid}', Orig: '{orig_k}', Trans: '{trans_k}'.")
 
     def apply_edited_translation(self):
@@ -2045,7 +2387,7 @@ class TranslationTab(QtWidgets.QWidget):
                 self.table.setItem(row_idx, 2, QtWidgets.QTableWidgetItem(new_trans_edit))
             
             self.current_translation_in_editor_before_change = new_trans_edit
-            self.translator_save_status_label.setText("<b>Applied ✅</b>")
+            UIAnimator.flash_status_label(self.translator_save_status_label, "<b>Applied ✅</b>")
 
             self.main_window.set_dirty_flag(True)
             
@@ -2248,7 +2590,7 @@ class TranslationTab(QtWidgets.QWidget):
     @QtCore.Slot()
     def _trigger_translator_debounce_save(self):
         if self.current_row is not None:
-            self.translator_save_status_label.setText("<i>Changes detected...</i>")
+            UIAnimator.flash_status_label(self.translator_save_status_label, "⚠️ <i>Changes detected...</i>", color="#f1fa8c", duration_ms=800)
             self.translator_debounce_timer.start()
 
     def _create_debounce_timer(self, slot_function, interval=1000):
@@ -2266,9 +2608,10 @@ class TranslatorApp(QtWidgets.QMainWindow):
         self.cache = {}
         self.cache_file_path = None
         self.data = None
+        self.original_data = None
+        self.modified_entry_ids = set()
         self.input_path = None
         self.is_dirty = False
-
         self.recent_files = current_settings.get("recent_files", [])
         self.recent_menu = None
         self.qt_log_handler = None
@@ -2295,7 +2638,6 @@ class TranslatorApp(QtWidgets.QMainWindow):
         self.auto_save_timer = self._create_debounce_timer(self.save_all_changes, 3000)
         
         self.init_ui()
-        
         
         if self.translation_tab and self.translation_tab.get_log_text_edit():
             self.qt_log_handler = QtLogHandler(self.translation_tab.get_log_text_edit())
@@ -2355,6 +2697,91 @@ class TranslatorApp(QtWidgets.QMainWindow):
         tab_widget.addTab(prompt_editor_tab, "Promt Editor")
 
         tab_widget.setCurrentIndex(2)
+        self.loading_overlay = LoadingOverlay(self.centralWidget())
+
+    def _flash_row_color(self, row, highlight_color=QtGui.QColor("#2ca878"), duration_ms=1200):
+            table = self.translation_tab.table
+            if not (0 <= row < table.rowCount()):
+                return
+            
+            selection_model = table.selectionModel()
+            selected_rows = {index.row() for index in selection_model.selectedRows()}
+            is_row_selected = row in selected_rows
+            selection_color = QtGui.QColor("#44689e")
+            start_color = selection_color if is_row_selected else QtGui.QColor(0, 0, 0, 0)
+
+            items_in_row_to_animate = []
+            for col in range(table.columnCount()):
+                item = table.item(row, col)
+                if not item:
+                    item = QtWidgets.QTableWidgetItem()
+                    table.setItem(row, col, item)
+                items_in_row_to_animate.append(item)
+
+            if selected_rows:
+                selection_model.blockSignals(True)
+                selection_model.clear()
+                
+                for r in selected_rows:
+                    if r == row:
+                        continue
+                    for c in range(table.columnCount()):
+                        item = table.item(r, c)
+                        if item:
+                            item.setBackground(selection_color)
+                for item in items_in_row_to_animate:
+                    item.setBackground(start_color)
+                selection_model.blockSignals(False)
+
+            animation_group = QtCore.QParallelAnimationGroup(self)
+            for item in items_in_row_to_animate:
+                fade_in_anim = QtCore.QVariantAnimation()
+                fade_in_anim.setDuration(duration_ms // 2)
+                fade_in_anim.setStartValue(start_color)
+                fade_in_anim.setEndValue(highlight_color)
+                fade_in_anim.setEasingCurve(QtCore.QEasingCurve.InQuad)
+
+                fade_out_anim = QtCore.QVariantAnimation()
+                fade_out_anim.setDuration(duration_ms // 2)
+                fade_out_anim.setStartValue(highlight_color)
+                fade_out_anim.setEndValue(start_color)
+                fade_out_anim.setEasingCurve(QtCore.QEasingCurve.OutQuad)
+                
+                sequential_anim = QtCore.QSequentialAnimationGroup()
+                sequential_anim.addAnimation(fade_in_anim)
+                sequential_anim.addAnimation(fade_out_anim)
+
+                def create_update_func(it):
+                    return lambda color: it.setBackground(QtGui.QBrush(color))
+
+                update_func = create_update_func(item)
+                fade_in_anim.valueChanged.connect(update_func)
+                fade_out_anim.valueChanged.connect(update_func)
+                animation_group.addAnimation(sequential_anim)
+
+            def on_group_finished():
+                rows_we_touched = selected_rows | {row}
+                for r in rows_we_touched:
+                    for c in range(table.columnCount()):
+                        item = table.item(r, c)
+                        if item:
+                            item.setBackground(QtGui.QBrush())
+                
+                if selected_rows:
+                    selection_model.blockSignals(True)
+                    selection_model.clear()
+                    for r in selected_rows:
+                        selection_model.select(
+                            table.model().index(r, 0),
+                            QtCore.QItemSelectionModel.Select | QtCore.QItemSelectionModel.Rows
+                        )
+                    selection_model.blockSignals(False)
+            
+            animation_group.finished.connect(on_group_finished)
+            animation_group.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
+
+            if items_in_row_to_animate:
+                items_in_row_to_animate[0].setData(QtCore.Qt.UserRole + 1, animation_group)
 
     def set_dirty_flag(self, dirty=True):
         if dirty and not self.is_dirty:
@@ -2679,8 +3106,10 @@ class TranslatorApp(QtWidgets.QMainWindow):
     def open_settings_dialog(self):
             global current_settings
             dialog = SettingsDialog(current_settings, self)
-            dialog.clear_cache_requested.connect(self.handle_clear_cache_request)
             if dialog.exec() == QtWidgets.QDialog.Accepted:
+                if dialog.cache_clear_was_requested_flag:
+                    logger.info("Applying queued cache clear request after settings were accepted.")
+                    self.handle_clear_cache_request()
                 new_s_data = dialog.get_settings()
 
                 api_keys_changed = current_settings.get("api_keys", []) != new_s_data.get("api_keys", [])
@@ -2773,12 +3202,19 @@ class TranslatorApp(QtWidgets.QMainWindow):
     @QtCore.Slot()
     def new_lorebook(self):
         if self.is_dirty:
-            reply = QtWidgets.QMessageBox.question(self, "Unsaved Changes",
-                "You have unsaved changes. Do you want to discard them and create a new LORE-book?",
-                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
-                QtWidgets.QMessageBox.No)
-            if reply == QtWidgets.QMessageBox.No:
-                return
+                    msg_box = QtWidgets.QMessageBox(self)
+                    msg_box.setWindowTitle("Unsaved Changes")
+                    msg_box.setText("You have unsaved changes.")
+                    msg_box.setInformativeText("Do you want to save your changes before creating a new LORE-book?")
+                    msg_box.setStandardButtons(QtWidgets.QMessageBox.Save | QtWidgets.QMessageBox.Discard | QtWidgets.QMessageBox.Cancel)
+                    msg_box.setDefaultButton(QtWidgets.QMessageBox.Save)
+                    reply = msg_box.exec()
+                    if reply == QtWidgets.QMessageBox.Cancel:
+                        logger.info("New LORE-book creation cancelled by user due to unsaved changes.")
+                        return
+                    elif reply == QtWidgets.QMessageBox.Save:
+                        logger.info("User chose to save changes before creating a new LORE-book.")
+                        self.save_all_changes()
 
         output_path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Create New LORE-book", os.path.expanduser("~"), "LORE-book (*.json);;All Files (*)")
 
@@ -2787,9 +3223,6 @@ class TranslatorApp(QtWidgets.QMainWindow):
             return
 
         logger.info(f"Creating and saving new LORE-book to {output_path}")
-
-        if self.cache_file_path and self.cache:
-            self.save_cache()
 
         new_data = copy.deepcopy(LOREBOOK_TEMPLATE)
         
@@ -2806,87 +3239,104 @@ class TranslatorApp(QtWidgets.QMainWindow):
             logger.error(f"Failed to save new LORE-book to {output_path}: {e}", exc_info=True)
             QtWidgets.QMessageBox.critical(self, "Creation Error", f"Failed to create LORE-book file: {e}")
 
+
     def load_file(self, path):
-                if not path or not os.path.exists(path):
-                    QtWidgets.QMessageBox.critical(self, 'Error', f'File not found: {path}')
-                    logger.error(f'LORE-book not found: {path}')
-                    return
-                if self.is_dirty:
-                    self.save_all_changes()
+        if not path or not os.path.exists(path):
+            QtWidgets.QMessageBox.critical(self, 'Error', f'File not found: {path}')
+            logger.error(f'LORE-book not found: {path}')
+            return
+        if self.is_dirty:
+            self.save_all_changes()
 
-                if self.cache_file_path and self.cache:
-                    self.save_cache()
+        if self.cache_file_path and self.cache:
+            self.save_cache()
+        self._cancel_batch_translation(silent=True)
+        self.data = None
+        self.original_data = None
+        self.modified_entry_ids.clear()
+        self.cache = {}
+        self.cache_file_path = None
+        self.input_path = None
+        self.editor_tab.editor_clear_form()
+        self.editor_tab.editor_set_panel_enabled(False)
+        self.editor_tab.editor_refresh_listbox()
+        self.translation_tab.table_data = []
+        self.translation_tab.update_table_widget()
+        logger.debug("Application state has been reset before loading new file.")
+        
+        self.loading_overlay.start_animation(f"Loading {os.path.basename(path)}...")
+        QtWidgets.QApplication.processEvents()
+        
+        try:
+            with open(path, 'r', encoding='utf-8') as f: 
+                self.original_data = json.load(f)
+            if "entries" not in self.original_data or not isinstance(self.original_data['entries'], dict):
+                raise ValueError("Invalid LORE-book format: Missing 'entries' dictionary.")
 
-                self._cancel_batch_translation(silent=True)
+            self.data = copy.deepcopy(self.original_data)
+            self.input_path = path
 
-                self.data = None
-                self.cache = {}
-                self.cache_file_path = None
-                self.input_path = None
-                self.editor_tab.editor_clear_form()
-                self.editor_tab.editor_set_panel_enabled(False)
-                self.editor_tab.editor_refresh_listbox()
-                self.translation_tab.table_data = []
-                self.translation_tab.update_table_widget()
-                logger.info("Application state has been reset before loading new file.")
-                
-                self.status_bar.showMessage(f"Loading {os.path.basename(path)}...")
-                QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
-                
+            base_name, _ = os.path.splitext(self.input_path)
+            edit_file_path = f"{base_name}_edit.json"
+            if os.path.exists(edit_file_path):
+                logger.info(f"Found edit file: {edit_file_path}. Applying edits.")
                 try:
-                    with open(path, 'r', encoding='utf-8') as f: 
-                        loaded_json = json.load(f)
+                    with open(edit_file_path, 'r', encoding='utf-8') as f:
+                        edits = json.load(f)
+                    if isinstance(edits, dict) and 'entries' in edits:
+                        for entry_id, edited_entry_data in edits['entries'].items():
+                            if entry_id in self.data['entries']:
+                                self.data['entries'][entry_id] = edited_entry_data
+                                logger.debug(f"Applied edit for entry ID '{entry_id}'.")
+                            else:
+                                self.data['entries'][entry_id] = edited_entry_data
+                                logger.debug(f"Added new entry from edit file with ID '{entry_id}'.")
+                except Exception as e_edit:
+                    logger.error(f"Failed to load or apply edits from {edit_file_path}: {e_edit}", exc_info=True)
+                    QtWidgets.QMessageBox.warning(self, "Edit File Error", f"Could not load the edit file '{os.path.basename(edit_file_path)}'.\n\nError: {e_edit}\n\nLoading original file only.")
 
-                    if "entries" not in loaded_json or not isinstance(loaded_json['entries'], dict):
-                        raise ValueError("Invalid LORE-book format: Missing 'entries' dictionary.")
+            cache_base_name, _ = os.path.splitext(os.path.basename(self.input_path))
+            self.cache_file_path = os.path.join(os.path.dirname(self.input_path), f"{cache_base_name}_translation_cache.json")
+            self.load_cache()
 
-                    self.data = loaded_json
-                    self.input_path = path
+            logger.info(f"Active LORE-book: {self.input_path}")
+            logger.info(f"Project cache path set to: {self.cache_file_path}")
 
-                    self.cache = {}
-                    base_name, _ = os.path.splitext(os.path.basename(self.input_path))
-                    self.cache_file_path = os.path.join(os.path.dirname(self.input_path), f"{base_name}_translation_cache.json")
-                    
-                    logger.info(f"Active LORE-book: {self.input_path}")
-                    logger.info(f"Project cache path set to: {self.cache_file_path}")
+            if 'entries' in self.data:
+                for entry_data in self.data['entries'].values():
+                    self._ensure_entry_key_is_list(entry_data)
+            
+            logger.info(f"Loaded LORE-book. Total Entries (with edits): {len(self.data.get('entries', {}))}")
+            self.save_action.setEnabled(True)
+            self.export_action.setEnabled(bool(self.data))
+            self.update_recent_files(self.input_path)
+            self.update_recent_files_menu()
+            save_settings()
+        
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, 'LORE-book Load Error', f'Failed to load file: {e}')
+            logger.error(f'LORE-book load error {path}: {e}', exc_info=True)
+            self.data = None
+            self.original_data = None
+            self.input_path = None
+            self.cache_file_path = None
+            self.cache = {}
+            self.save_action.setEnabled(False)
+            self.export_action.setEnabled(False)
+            self.editor_tab.on_file_loaded()
+            self.translation_tab.on_file_loaded()
+            self.status_bar.showMessage("Error loading LORE-book.")
+            return
+        finally:
+            self.loading_overlay.stop_animation()
 
-                    self.load_cache()
-
-                    if 'entries' in self.data:
-                        for entry_data in self.data['entries'].values():
-                            self._ensure_entry_key_is_list(entry_data)
-                    
-                    logger.info(f"Loaded LORE-book. Entries: {len(self.data.get('entries', {}))}")
-                    self.save_action.setEnabled(True)
-                    self.export_action.setEnabled(bool(self.data))
-                    self.update_recent_files(self.input_path)
-                    self.update_recent_files_menu()
-                    save_settings()
-                
-                except Exception as e:
-                    QtWidgets.QMessageBox.critical(self, 'LORE-book Load Error', f'Failed to load file: {e}')
-                    logger.error(f'LORE-book load error {path}: {e}', exc_info=True)
-                    self.data = None
-                    self.input_path = None
-                    self.cache_file_path = None
-                    self.cache = {}
-                    self.save_action.setEnabled(False)
-                    self.export_action.setEnabled(False)
-                    self.editor_tab.on_file_loaded()
-                    self.translation_tab.on_file_loaded()
-                    self.status_bar.showMessage("Error loading LORE-book.")
-                    return
-                finally:
-                    QtWidgets.QApplication.restoreOverrideCursor()
-
-                self.editor_tab.on_file_loaded()
-                self.translation_tab.on_file_loaded()
-                
-                base_name = os.path.basename(path)
-                self.setWindowTitle(f'Lorebook Gemini Translator v{APP_VERSION} - {base_name}')
-                self.status_bar.showMessage(f"Loaded {base_name}. {len(self.translation_tab.table_data)} displayable keys.")
-                self.translation_tab.update_model_specific_ui()
-                self.set_dirty_flag(False)
+        self.editor_tab.on_file_loaded()
+        self.translation_tab.on_file_loaded()
+        base_name = os.path.basename(path)
+        self.setWindowTitle(f'Lorebook Gemini Translator v{APP_VERSION} - {base_name}')
+        self.status_bar.showMessage(f"Loaded {base_name}. {len(self.translation_tab.table_data)} displayable keys.")
+        self.translation_tab.update_model_specific_ui()
+        self.set_dirty_flag(False)
 
     def load_cache(self):
         self.cache = {}
@@ -3207,18 +3657,27 @@ class TranslatorApp(QtWidgets.QMainWindow):
                         item = self.translation_tab.table.item(row_idx, 2)
                         if item:
                             item.setText(translated_text)
-                        else: 
+                            self._flash_row_color(row_idx)
+                        else:
                             self.translation_tab.table.setItem(row_idx, 2, QtWidgets.QTableWidgetItem(translated_text))
+                        
                         if self.translation_tab.current_row == row_idx and self.translation_tab.current_orig_key_for_editor == orig_key:
                             self.translation_tab.trans_edit.blockSignals(True)
                             self.translation_tab.trans_edit.setText(translated_text)
                             self.translation_tab.trans_edit.blockSignals(False)
                             self.translation_tab.current_translation_in_editor_before_change = translated_text
-                            self.translation_tab.translator_save_status_label.setText("<b>Saved ✅</b>")
+                            UIAnimator.flash_status_label(self.translation_tab.translator_save_status_label, "<b>Saved ✅</b>")
         else:
             logger.error(f"Missing job_data in _handle_job_completed. UID:{uid},Orig:{orig_key},Tgt:{tgt_lang},Src:{src_lang}. Job:{job_data}")
         
         self._update_progress_dialog()
+
+
+        if 0 <= row_idx < self.translation_tab.table.rowCount():
+            item_to_scroll_to = self.translation_tab.table.item(row_idx, 0)
+            if item_to_scroll_to:
+                self.translation_tab.table.scrollToItem(item_to_scroll_to, QtWidgets.QAbstractItemView.ScrollHint.PositionAtCenter)
+
 
         if not self.pending_translation_jobs and self.active_translation_jobs == 0:
             self._finalize_batch_translation("completed (last active job finished)")
@@ -3237,7 +3696,7 @@ class TranslatorApp(QtWidgets.QMainWindow):
             
             if is_quota_error:
                 logger.warning(f"Quota error for key {self._mask_api_key(used_key)}. Re-queuing job for '{job_data.get('text_to_translate')}'.")
-                self.pending_translation_jobs.appendleft(job_data)
+                self.pending_translation_jobs.append(job_data)
                 self.completed_jobs_for_progress -= 1
 
                 retry_delay_seconds = extra_error_details.get('retry_delay_seconds')
@@ -3273,12 +3732,16 @@ class TranslatorApp(QtWidgets.QMainWindow):
     def _update_progress_dialog(self):
         self.completed_jobs_for_progress += 1
         if self.progress_dialog:
-            if self.progress_dialog.wasCanceled():
-                logger.debug("Progress update skipped, dialog cancelled.")
-                return
-            self.progress_dialog.setValue(self.completed_jobs_for_progress)
-            if self.completed_jobs_for_progress >= self.total_jobs_for_progress and self.active_translation_jobs == 0:
-                self._finalize_batch_translation("completed normally (all jobs processed)")
+            current_val = self.progress_dialog.value()
+            new_val = self.completed_jobs_for_progress
+            self.progress_animation = QtCore.QPropertyAnimation(self.progress_dialog, b"value")
+            self.progress_animation.setDuration(250)
+            self.progress_animation.setStartValue(current_val)
+            self.progress_animation.setEndValue(new_val)
+            self.progress_animation.setEasingCurve(QtCore.QEasingCurve.InOutQuad)
+            self.progress_animation.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
+            if new_val >= self.total_jobs_for_progress and self.active_translation_jobs == 0:
+                self._finalize_batch_translation("completed normally")
 
     def _finalize_batch_translation(self, reason=""):
         if not self.progress_dialog and self.total_jobs_for_progress == 0 and self.active_translation_jobs == 0:
@@ -3380,115 +3843,128 @@ class TranslatorApp(QtWidgets.QMainWindow):
         return False
 
     def export_lorebook(self):
-            if self.active_translation_jobs > 0:
-                QtWidgets.QMessageBox.warning(self, "Operation in Progress", "Cannot save while translations are active.")
-                return
-            if not self.data:
-                QtWidgets.QMessageBox.warning(self, "Save Error", "No LORE-book data loaded to save.")
-                return
-            if self.is_dirty:
-                self.save_all_changes()
+        if self.active_translation_jobs > 0:
+            QtWidgets.QMessageBox.warning(self, "Operation in Progress", "Cannot export while translations are active.")
+            return
+        if not self.data:
+            QtWidgets.QMessageBox.warning(self, "Export Error", "No LORE-book data loaded to export.")
+            return
+        if self.is_dirty:
+            self.save_all_changes()
 
-            self.save_cache()
-            
-            try:
-                data_to_export = copy.deepcopy(self.data)
-            except Exception as e:
-                logger.error(f"Failed to deepcopy data for export: {e}", exc_info=True)
-                QtWidgets.QMessageBox.critical(self, "Save Error", f"An internal error occurred: {e}")
-                return
+        self.save_cache()
+        current_lore_name = os.path.splitext(os.path.basename(self.input_path))[0] if self.input_path else "New_Lorebook"
+        
+        
+        export_dialog = ExportSettingsDialog(self, current_lore_name, self)
+        
+        if not export_dialog.exec() == QtWidgets.QDialog.Accepted:
+            logger.info("Export operation cancelled by user in settings dialog.")
+            return
 
-            translations_exist = self._check_if_translations_exist()
+        lore_name_from_dialog, selected_languages, include_originals, missing_rule = export_dialog.get_export_settings()
+        src_lang = self.translation_tab.current_source_language
+        
+        if not lore_name_from_dialog:
+            QtWidgets.QMessageBox.warning(self, "Invalid Name", "LORE-book name for export cannot be empty.")
+            return
 
-            selected_languages = []
-            include_originals = False
-            
-            if translations_exist:
-                current_lore_name = os.path.splitext(os.path.basename(self.input_path))[0] if self.input_path else "New Lorebook"
-                export_dialog = ExportSettingsDialog(
-                    current_lore_name,
-                    current_settings.get("target_languages", []),
-                    self.translation_tab.current_target_language,
-                    self)
-                if export_dialog.exec() == QtWidgets.QDialog.Accepted:
-                    lore_name_from_dialog, selected_languages, include_originals = export_dialog.get_export_settings()
-                else:
-                    logger.info("Save As operation cancelled by user in settings dialog.")
-                    return
-            else:
-                logger.info("No translations found in cache for this LORE-book. Proceeding with direct save.")
-                lore_name_from_dialog = os.path.splitext(os.path.basename(self.input_path))[0] if self.input_path else "New_LORE-book"
+        data_to_export = copy.deepcopy(self.data)
 
-            src_lang = self.translation_tab.current_source_language
-            if selected_languages:
-                for entry_data in data_to_export['entries'].values():
-                    self._ensure_entry_key_is_list(entry_data)
-                    uid = entry_data.get('uid')
-                    if uid is None: 
-                        continue
-                    
-                    original_keys = list(entry_data.get('key', []))
-                    final_keys = set(original_keys) if include_originals else set()
-                    
-                    found_any_translation = False
+        if selected_languages:
+            logger.info(f"Applying translations for languages: {selected_languages}")
+            for entry_id, entry_data in data_to_export['entries'].items():
+                self._ensure_entry_key_is_list(entry_data)
+                uid = entry_data.get('uid')
+                if uid is None: 
+                    continue
+
+                original_keys_for_this_entry = list(entry_data.get('key', []))
+                final_keys = set()
+
+                if include_originals:
+                    final_keys.update(original_keys_for_this_entry)
+
+                for key_text in original_keys_for_this_entry:
+                    found_translation_for_key = False
                     for lang in selected_languages:
-                        for key_text in original_keys:
-                            cache_key = self._generate_cache_key(uid, key_text, src_lang, lang)
-                            if cache_key in self.cache:
-                                translated_key = self.cache[cache_key]
-                                if translated_key:
-                                    final_keys.add(translated_key)
-                                    found_any_translation = True
-                    
-                    if not include_originals and not found_any_translation:
-                        final_keys.update(original_keys)
+                        cache_key = self._generate_cache_key(uid, key_text, src_lang, lang)
+                        if cache_key in self.cache:
+                            translated_key = self.cache[cache_key]
+                            if translated_key:
+                                final_keys.add(translated_key)
+                                found_translation_for_key = True
+                    if not found_translation_for_key:
+                        if not include_originals and missing_rule == 'leave':
+                            final_keys.add(key_text)
+                
+                entry_data['key'] = sorted(list(final_keys))
 
-                    entry_data['key'] = sorted(list(final_keys))
+        start_dir = os.path.dirname(self.input_path) if self.input_path else os.path.expanduser("~")
+        default_save_path = os.path.join(start_dir, f"{lore_name_from_dialog}.json")
 
-            if self.input_path:
-                start_dir = os.path.dirname(self.input_path)
-            else:
-                start_dir = os.path.expanduser("~")
+        output_path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Export LORE-book As", default_save_path, "LORE-book (*.json);;All Files (*)")
 
-            base_name = lore_name_from_dialog.replace(" ", "_")
-            default_save_path = os.path.join(start_dir, f"{base_name}.json")
+        if not output_path:
+            logger.info("Export operation cancelled by user in file dialog.")
+            return
 
-            output_path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save LORE-book As", default_save_path, "LORE-book (*.json);;All Files (*)")
-
-            if not output_path:
-                logger.info("Save As operation cancelled by user in file dialog.")
-                return
-
-            logger.info(f"Attempting to save LORE-book data to: {output_path}")
-            self.status_bar.showMessage(f"Saving to {os.path.basename(output_path)}...")
-            QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
-            try:
-                with open(output_path, 'w', encoding='utf-8') as f:
-                    json.dump(data_to_export, f, ensure_ascii=False, indent=2)
-
-                self.input_path = output_path
-                self.load_file(self.input_path)
-                self.set_dirty_flag(False)
-                QtWidgets.QMessageBox.information(self, 'Save Successful', f'The LORE-book has been saved to:\n{output_path}')
-
-            except Exception as e:
-                logger.error(f'Save failed for {output_path}: {e}', exc_info=True)
-                QtWidgets.QMessageBox.critical(self, 'Save Error', f'Failed to save LORE-book: {e}')
-            finally:
-                QtWidgets.QApplication.restoreOverrideCursor()
+        logger.info(f"Attempting to export compiled LORE-book to: {output_path}")
+        self.loading_overlay.start_animation(f"Exporting {os.path.basename(output_path)}...")
+        QtWidgets.QApplication.processEvents()
+        try:
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(data_to_export, f, ensure_ascii=False, indent=2)
+            
+            QtWidgets.QMessageBox.information(self, 'Export Successful', f'The LORE-book has been exported to:\n{output_path}')
+            logger.info("Export successful.")
+        except Exception as e:
+            logger.error(f'Export failed for {output_path}: {e}', exc_info=True)
+            QtWidgets.QMessageBox.critical(self, 'Export Error', f'Failed to export LORE-book: {e}')
+        finally:
+            self.loading_overlay.stop_animation()
 
     def _save_lorebook_data(self):
-            if not self.input_path or not self.data:
-                raise IOError("Cannot save LORE-book data: input path or data is missing.")
+        if not self.input_path or not self.data:
+            raise IOError("Cannot save edits: input path or data is missing.")
 
-            data_to_save = {"entries": self.data.get("entries", {})}
-            
-            with open(self.input_path, 'w', encoding='utf-8') as f:
-                json.dump(data_to_save, f, ensure_ascii=False, indent=2)
+        if not self.modified_entry_ids:
+            logger.debug("Save called, but no entries have been modified. Skipping write to _edit.json.")
+            return
+
+        base_name, _ = os.path.splitext(self.input_path)
+        edit_file_path = f"{base_name}_edit.json"
+        
+        logger.info(f"Saving {len(self.modified_entry_ids)} modified entries to {edit_file_path}...")
+
+        edits_to_save = {"entries": {}}
+        if os.path.exists(edit_file_path):
+            try:
+                with open(edit_file_path, 'r', encoding='utf-8') as f:
+                    existing_edits = json.load(f)
+                if isinstance(existing_edits, dict) and 'entries' in existing_edits:
+                    edits_to_save = existing_edits
+            except Exception as e:
+                logger.warning(f"Could not read existing edit file at {edit_file_path}, it will be overwritten. Error: {e}")
+
+        for entry_id in self.modified_entry_ids:
+            if entry_id in self.data['entries']:
+                edits_to_save['entries'][entry_id] = self.data['entries'][entry_id]
+
+        with open(edit_file_path, 'w', encoding='utf-8') as f:
+            json.dump(edits_to_save, f, ensure_ascii=False, indent=2)
+        
+        logger.info("Successfully saved edits.")
+        self.modified_entry_ids.clear()
 
     def save_all_changes(self):
         if not self.is_dirty:
             logger.debug("save_all_changes called, but no changes to save (not dirty).")
+            return
+        
+        if self.active_translation_jobs > 0:
+            logger.warning(f"Save operation deferred because {self.active_translation_jobs} translation jobs are active.")
+            self.auto_save_timer.start() 
             return
 
         if not self.input_path:
@@ -3497,8 +3973,8 @@ class TranslatorApp(QtWidgets.QMainWindow):
             return
 
         logger.info(f"Saving all changes for {os.path.basename(self.input_path)}")
-        self.status_bar.showMessage("Saving changes...", 2000)
-        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+        self.loading_overlay.start_animation("Saving changes...")
+        QtWidgets.QApplication.processEvents()
         try:
             self._save_lorebook_data()
             self.save_cache()
@@ -3512,7 +3988,7 @@ class TranslatorApp(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.critical(self, "Save Error", f"Could not save changes: {e}")
             self.status_bar.showMessage("Save failed!", 5000)
         finally:
-            QtWidgets.QApplication.restoreOverrideCursor()
+            self.loading_overlay.stop_animation()
 
     def closeEvent(self, event: QtGui.QCloseEvent):
             logger.info("Close event received.")
@@ -3556,6 +4032,11 @@ class TranslatorApp(QtWidgets.QMainWindow):
             
             if event: 
                 event.accept()
+    
+    def resizeEvent(self, event):
+        if hasattr(self, 'loading_overlay'):
+            self.loading_overlay.resize(self.centralWidget().size())
+        super().resizeEvent(event)
 
 
 def run_main_app():
