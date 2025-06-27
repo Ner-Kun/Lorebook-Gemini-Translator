@@ -9,7 +9,7 @@ set "PY_FILE_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Trans
 
 set "LAUNCHER_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/run_translator.bat"
 
-set "REQUIREMENTS=PySide6 google-genai google-api-core pyqtdarktheme-fork rich"
+set "REQUIREMENTS=PySide6 google-genai google-api-core pyqtdarktheme-fork rich packaging"
 
 set "OBSOLETE_PACKAGES=google.generativeai"
 
@@ -30,7 +30,7 @@ cls
 TITLE !APP_NAME! Updater v%UPDATER_VERSION%
 
 echo.!C_MAGENTA!===============================================================!C_RESET!
-echo.!C_MAGENTA!=              !APP_NAME! Updater v%UPDATER_VERSION%              =!C_RESET!
+echo.!C_MAGENTA!=              !APP_NAME! Updater v%UPDATER_VERSION%          =!C_RESET!
 echo.!C_MAGENTA!===============================================================!C_RESET!
 echo.
 echo !C_YELLOW!The update will begin in 3 seconds... Please do not close this window.!C_RESET!
