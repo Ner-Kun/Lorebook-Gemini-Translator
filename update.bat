@@ -9,7 +9,7 @@ set "PY_FILE_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Trans
 
 set "LAUNCHER_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/run_translator.bat"
 
-set "REQUIREMENTS=PySide6 google-genai google-api-core pyqtdarktheme-fork rich packaging"
+set "REQUIREMENTS=PySide6 google-genai google-api-core pyqtdarktheme-fork rich packaging requests""
 
 set "OBSOLETE_PACKAGES=google.generativeai"
 

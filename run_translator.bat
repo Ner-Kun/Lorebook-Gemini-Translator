@@ -7,7 +7,7 @@ set "APP_NAME=Lorebook Gemini Translator"
 
 set "PY_FILE_URL=https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/test/Lorebook_Gemini_Translator.py"
 
-set "REQUIREMENTS=PySide6 google-genai google-api-core pyqtdarktheme-fork rich packaging"
+set "REQUIREMENTS=PySide6 google-genai google-api-core pyqtdarktheme-fork rich packaging requests"
 
 set "BASE_DIR=%~dp0"
 set "VENV_DIR=%BASE_DIR%venv"
