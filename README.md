@@ -61,10 +61,10 @@ Application designed to help translate LORE-book keys/triggers from one language
   **Editor**
   ![Editor](images/s_2.png)
 
-  **Диалог экспорта:**
+  **Export**
   ![Export](images/s_3.png)
 
-  **Диалог экспорта:**
+  **Inspector**
   ![Inspector](images/s_4.png)
 </details>
 <!-- markdownlint-enable MD033 -->
