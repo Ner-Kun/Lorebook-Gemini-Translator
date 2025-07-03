@@ -40,6 +40,7 @@ default_settings = {
     "api_keys": [],
     "current_api_key_index": 0,
     "gemini_model": "gemini-2.5-flash-lite-preview-06-17",
+    "active_endpoint": "gemini",
     "log_to_file": False,
     "show_log_panel": False,
     "log_level": "INFO",
@@ -181,15 +182,30 @@ class TranslationJobRunnable(QtCore.QRunnable):
             
             logger.info(f"Job starting with API key: {masked_key_log_text}, Model: {model_name_requested_for_this_job}")
             
-            client = genai.Client(api_key=api_key_for_this_job)
-            prompt, final_processed_translation, thinking_text, usage_meta = self.app_ref._execute_gemini_api_call_internal(
-                client, 
-                model_name_requested_for_this_job, 
-                text_to_translate, 
-                source_lang, 
-                target_lang, 
-                context_content_for_api
-            )
+            # Check which provider to use
+            active_endpoint = current_settings.get('active_endpoint', 'gemini')
+            
+            if active_endpoint == 'gemini' and GEMINI_AVAILABLE:
+                # Use original Gemini implementation
+                client = genai.Client(api_key=api_key_for_this_job)
+                prompt, final_processed_translation, thinking_text, usage_meta = self.app_ref._execute_gemini_api_call_internal(
+                    client, 
+                    model_name_requested_for_this_job, 
+                    text_to_translate, 
+                    source_lang, 
+                    target_lang, 
+                    context_content_for_api
+                )
+            else:
+                # Use provider system
+                prompt, final_processed_translation, thinking_text, usage_meta = self.app_ref._execute_provider_api_call_internal(
+                    api_key_for_this_job,
+                    model_name_requested_for_this_job, 
+                    text_to_translate, 
+                    source_lang, 
+                    target_lang, 
+                    context_content_for_api
+                )
             self.signals.inspector_update.emit(
                 prompt, 
                 final_processed_translation if final_processed_translation is not None else "", 
@@ -1140,21 +1156,45 @@ class SettingsDialog(AnimatedDialog):
         logger.info("Fetching models from API by user request...")
         QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
         try:
-            for key_val in keys_to_try_fetch:
-                try:
-                    masked_key_log = self._mask_api_key_for_dialog(key_val)
-                    logger.info(f"Trying API key (masked: {masked_key_log}) for models in dialog...")
-                    client = genai.Client(api_key=key_val)
-                    models_from_api = [ m.name.replace("models/", "") for m in client.models.list() if m.name.startswith("models/gemini") ]
-                    if models_from_api:
-                        fetched_models = sorted(list(set(models_from_api)))
-                        logger.info(f"Fetched models with key ({masked_key_log}): {fetched_models}")
-                        break
-                    else:
-                        logger.warning(f"No models found for key ({masked_key_log}).")
-                except Exception as e_key_fetch:
-                    masked_key_log_err = self._mask_api_key_for_dialog(key_val)
-                    logger.warning(f"Failed model fetch with key ({masked_key_log_err}): {e_key_fetch}", exc_info=False)
+            # Check which provider to use
+            active_endpoint = current_settings.get('active_endpoint', 'gemini')
+            
+            if active_endpoint == 'gemini' and GEMINI_AVAILABLE:
+                # Use original Gemini implementation
+                for key_val in keys_to_try_fetch:
+                    try:
+                        masked_key_log = self._mask_api_key_for_dialog(key_val)
+                        logger.info(f"Trying API key (masked: {masked_key_log}) for models in dialog...")
+                        client = genai.Client(api_key=key_val)
+                        models_from_api = [ m.name.replace("models/", "") for m in client.models.list() if m.name.startswith("models/gemini") ]
+                        if models_from_api:
+                            fetched_models = sorted(list(set(models_from_api)))
+                            logger.info(f"Fetched models with key ({masked_key_log}): {fetched_models}")
+                            break
+                        else:
+                            logger.warning(f"No models found for key ({masked_key_log}).")
+                    except Exception as e_key_fetch:
+                        masked_key_log_err = self._mask_api_key_for_dialog(key_val)
+                        logger.warning(f"Failed model fetch with key ({masked_key_log_err}): {e_key_fetch}", exc_info=False)
+            else:
+                # Use provider system
+                from translation_providers import ProviderFactory
+                config = ProviderFactory.load_endpoints_config()
+                endpoint_config = config['endpoints'].get(active_endpoint)
+                
+                if endpoint_config:
+                    provider = ProviderFactory.create_provider(endpoint_config)
+                    # Try to list models
+                    for key_val in keys_to_try_fetch:
+                        try:
+                            masked_key_log = self._mask_api_key_for_dialog(key_val)
+                            logger.info(f"Trying API key (masked: {masked_key_log}) for models via provider...")
+                            fetched_models = provider.list_models(key_val if endpoint_config.get('auth_type') == 'api_key' else None)
+                            if fetched_models:
+                                logger.info(f"Fetched models with provider: {fetched_models}")
+                                break
+                        except Exception as e:
+                            logger.warning(f"Failed to fetch models via provider: {e}")
             
             if not fetched_models:
                 logger.error("Failed to fetch models with any provided API keys for dialog.")
@@ -3004,6 +3044,9 @@ class TranslatorApp(QtWidgets.QMainWindow):
         self.settings_action=QtGui.QAction(QtGui.QIcon.fromTheme("preferences-system"),"&Settings...",self)
         self.settings_action.triggered.connect(self.open_settings_dialog)
         
+        self.endpoints_action=QtGui.QAction(QtGui.QIcon.fromTheme("network-server"),"Configure &Endpoints...",self)
+        self.endpoints_action.triggered.connect(self.open_endpoints_dialog)
+        
         self.toggleModelInspectorAction=QtGui.QAction("Model Inspector",self,checkable=True)
         self.toggleModelInspectorAction.setStatusTip("Show/Hide model inspector")
         self.toggleModelInspectorAction.triggered.connect(self.toggle_model_inspector)
@@ -3021,6 +3064,7 @@ class TranslatorApp(QtWidgets.QMainWindow):
         self.file_menu.addAction(self.export_action)
         self.file_menu.addSeparator()
         self.file_menu.addAction(self.settings_action)
+        self.file_menu.addAction(self.endpoints_action)
         self.file_menu.addSeparator()
         self.file_menu.addAction(self.exit_action)
         
@@ -3145,9 +3189,26 @@ class TranslatorApp(QtWidgets.QMainWindow):
                         test_m = current_settings.get("gemini_model")
                         masked_k_log = self._mask_api_key(test_k)
                         logger.info(f"Attempting to validate with key {masked_k_log} and model {test_m}")
-                        client = genai.Client(api_key=test_k)
-                        models = client.models.list()
-                        model_found = any(test_m in m.name for m in models)
+                        
+                        # Check which provider to use
+                        active_endpoint = current_settings.get('active_endpoint', 'gemini')
+                        
+                        if active_endpoint == 'gemini' and GEMINI_AVAILABLE:
+                            client = genai.Client(api_key=test_k)
+                            models = client.models.list()
+                            model_found = any(test_m in m.name for m in models)
+                        else:
+                            # Use provider system
+                            from translation_providers import ProviderFactory
+                            config = ProviderFactory.load_endpoints_config()
+                            endpoint_config = config['endpoints'].get(active_endpoint)
+                            
+                            if endpoint_config:
+                                provider = ProviderFactory.create_provider(endpoint_config)
+                                available_models = provider.list_models(test_k if endpoint_config.get('auth_type') == 'api_key' else None)
+                                model_found = test_m in available_models
+                            else:
+                                raise ValueError(f"Endpoint '{active_endpoint}' not found in configuration")
                         
                         if not model_found:
                             raise ValueError(f"Model '{test_m}' not found or not available with this API key.")
@@ -3157,6 +3218,49 @@ class TranslatorApp(QtWidgets.QMainWindow):
                     except Exception as e:
                         logger.error(f"Failed to validate new API key/model settings: {e}", exc_info=True)
                         QtWidgets.QMessageBox.warning(self, "Settings Validation Failed", f"Could not validate the new API or model settings:\n\n{e}\n\nTranslations may fail.")
+
+    def open_endpoints_dialog(self):
+        """Open the endpoints configuration dialog"""
+        from endpoint_config_dialog import EndpointConfigDialog
+        
+        dialog = EndpointConfigDialog(self)
+        if dialog.exec() == QtWidgets.QDialog.Accepted:
+            # Reload provider configuration
+            from translation_providers import ProviderFactory
+            config = ProviderFactory.load_endpoints_config()
+            
+            # Update current settings with active endpoint
+            active_endpoint = config.get('active_endpoint', 'gemini')
+            current_settings['active_endpoint'] = active_endpoint
+            
+            # If using a non-Gemini endpoint, we might need to update the UI
+            if active_endpoint != 'gemini':
+                endpoint_config = config['endpoints'].get(active_endpoint, {})
+                if endpoint_config.get('type') == 'openai':
+                    # Get the selected model
+                    active_model = endpoint_config.get('active_model', '')
+                    if not active_model:
+                        models = endpoint_config.get('models', [])
+                        if models:
+                            active_model = models[0]
+                    
+                    if active_model:
+                        logger.info(f"Switched to endpoint: {active_endpoint} with model: {active_model}")
+                        QtWidgets.QMessageBox.information(
+                            self, "Endpoint Changed", 
+                            f"Now using: {endpoint_config.get('name', active_endpoint)}\n\n"
+                            f"Selected model: {active_model}"
+                        )
+                    else:
+                        logger.info(f"Switched to endpoint: {active_endpoint} (no model selected)")
+                        QtWidgets.QMessageBox.information(
+                            self, "Endpoint Changed", 
+                            f"Now using: {endpoint_config.get('name', active_endpoint)}\n\n"
+                            f"No model selected - please configure in endpoint settings"
+                        )
+            
+            save_settings()
+            logger.info(f"Endpoints configuration updated. Active: {active_endpoint}")
 
     def handle_clear_cache_request(self):
         if not self.cache_file_path:
@@ -3506,6 +3610,50 @@ class TranslatorApp(QtWidgets.QMainWindow):
                 return prompt_for_inspector, "", "", error_message, {}
             return prompt_for_inspector, final_processed_translation, thinking_text_output, usage_metadata_output
 
+    def _execute_provider_api_call_internal(self, api_key, model_name, text_to_translate, source_lang_name_for_prompt, target_lang_name_for_prompt, context_content_for_api_call):
+        """Execute translation using the configured provider system"""
+        try:
+            # Load endpoints configuration
+            from translation_providers import ProviderFactory
+            config = ProviderFactory.load_endpoints_config()
+            
+            # Get active endpoint
+            active_endpoint = current_settings.get('active_endpoint', 'gemini')
+            endpoint_config = config['endpoints'].get(active_endpoint)
+            
+            if not endpoint_config:
+                logger.error(f"Endpoint '{active_endpoint}' not found in configuration")
+                return "", "", "", {"error": f"Endpoint '{active_endpoint}' not configured"}
+            
+            # Create provider instance
+            provider = ProviderFactory.create_provider(endpoint_config)
+            
+            # Get thinking settings
+            enable_thinking = current_settings.get("enable_model_thinking", True)
+            thinking_budget = current_settings.get("thinking_budget_value", -1)
+            
+            # Call the provider's translate method
+            prompt, translation, thinking_text, usage_metadata = provider.translate(
+                api_key=api_key,
+                model_name=model_name,
+                text=text_to_translate,
+                source_lang=source_lang_name_for_prompt,
+                target_lang=target_lang_name_for_prompt,
+                context=context_content_for_api_call,
+                enable_thinking=enable_thinking,
+                thinking_budget=thinking_budget
+            )
+            
+            logger.info(f"Provider API Call Result for '{text_to_translate}' -> '{translation}'")
+            return prompt, translation, thinking_text, usage_metadata
+            
+        except Exception as e:
+            logger.error(f"Provider API call failed: {e}", exc_info=True)
+            # Re-raise if it's a quota error
+            if isinstance(e, ResourceExhausted):
+                raise
+            return "", "", "", {"error": str(e)}
+
     def _get_translation_from_cache_or_prepare_job(self, orig_text, src_lang, tgt_lang, uid, context, force_regen=False, prepare_only=False):
         cache_key = self._generate_cache_key(uid, orig_text, src_lang, tgt_lang)
 
@@ -3517,7 +3665,21 @@ class TranslatorApp(QtWidgets.QMainWindow):
         return {'text_to_translate': orig_text, 'source_lang': src_lang, 'target_lang': tgt_lang, 'uid_val_for_lookup': str(uid),'context_content_for_api': api_ctx}, False
 
     def _start_translation_batch(self, jobs_to_queue, op_name="Translating"):
-        if not current_settings.get("api_keys"): 
+        # Check if we need API keys for the current endpoint
+        active_endpoint = current_settings.get('active_endpoint', 'gemini')
+        needs_api_key = True
+        
+        # Check if current endpoint requires API key
+        try:
+            from translation_providers import ProviderFactory
+            config = ProviderFactory.load_endpoints_config()
+            endpoint_config = config['endpoints'].get(active_endpoint, {})
+            if endpoint_config.get('auth_type') == 'none':
+                needs_api_key = False
+        except:
+            pass
+        
+        if needs_api_key and not current_settings.get("api_keys"): 
             QtWidgets.QMessageBox.critical(self, "API Key Error", "No API keys. Add in Settings.")
             logger.error("Batch start: No API keys.")
             return
@@ -3570,7 +3732,24 @@ class TranslatorApp(QtWidgets.QMainWindow):
             return
 
         api_keys = current_settings.get("api_keys", [])
-        if not api_keys:
+        
+        # Check if we need API keys for the current endpoint
+        active_endpoint = current_settings.get('active_endpoint', 'gemini')
+        needs_api_key = True
+        
+        try:
+            from translation_providers import ProviderFactory
+            config = ProviderFactory.load_endpoints_config()
+            endpoint_config = config['endpoints'].get(active_endpoint, {})
+            if endpoint_config.get('auth_type') == 'none':
+                needs_api_key = False
+                # Add a dummy key for endpoints that don't need auth
+                if not api_keys:
+                    api_keys = ["no-auth-needed"]
+        except:
+            pass
+        
+        if needs_api_key and not api_keys:
             logger.error("No API keys. Cannot dispatch.")
             if self.progress_dialog: 
                 self.progress_dialog.setLabelText("Error: No API keys.")
@@ -3602,7 +3781,24 @@ class TranslatorApp(QtWidgets.QMainWindow):
             current_settings["current_api_key_index"] = (sel_key_orig_idx + 1) % num_k
             job_data = self.pending_translation_jobs.popleft()
             job_data['api_key'] = key_to_use
-            job_data['model_name'] = current_settings.get("gemini_model")
+            
+            # Get model from active endpoint configuration
+            active_endpoint = current_settings.get('active_endpoint', 'gemini')
+            if active_endpoint == 'gemini':
+                job_data['model_name'] = current_settings.get("gemini_model")
+            else:
+                # Get model from endpoint configuration
+                try:
+                    from translation_providers import ProviderFactory
+                    config = ProviderFactory.load_endpoints_config()
+                    endpoint_config = config['endpoints'].get(active_endpoint, {})
+                    active_model = endpoint_config.get('active_model', '')
+                    if not active_model and endpoint_config.get('models'):
+                        active_model = endpoint_config['models'][0]
+                    job_data['model_name'] = active_model or "default-model"
+                except:
+                    job_data['model_name'] = "default-model"
+            
             self._record_api_request_timestamp(key_to_use)
             
             signals = JobSignals()
@@ -4137,8 +4333,16 @@ if __name__ == '__main__':
 
     check_and_trigger_update()
 
-    from google import genai
-    from google.genai import types, errors
-    from google.api_core.exceptions import ResourceExhausted
+    # Import our translation providers module
+    from translation_providers import (
+        TranslationProvider, ProviderFactory, 
+        GEMINI_AVAILABLE, ResourceExhausted, errors
+    )
+
+    # Only import genai if we're using Gemini provider
+    if GEMINI_AVAILABLE:
+        from google import genai
+        from google.genai import types, errors
+        from google.api_core.exceptions import ResourceExhausted
 
     run_main_app()
