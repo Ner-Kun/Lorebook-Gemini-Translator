@@ -21,8 +21,16 @@ except ImportError:
     GEMINI_AVAILABLE = False
     genai = None
     GenerateContentResponse = None
-    ResourceExhausted = None
-    errors = None
+    
+    # Define generic exceptions as fallback
+    class ResourceExhausted(Exception):
+        """Generic exception for resource exhausted errors (rate limits)"""
+        pass
+    
+    class errors:
+        class ClientError(Exception):
+            """Generic exception for client errors"""
+            pass
 
 logger = logging.getLogger('Lorebook_Gemini_Translator')
 
@@ -226,7 +234,8 @@ class OpenAIProvider(TranslationProvider):
         
         # Make the API call
         try:
-            response = requests.post(url, json=payload, headers=headers, timeout=30)
+            # Increase timeout to 120 seconds for LMStudio compatibility
+            response = requests.post(url, json=payload, headers=headers, timeout=120)
             response.raise_for_status()
             
             data = response.json()

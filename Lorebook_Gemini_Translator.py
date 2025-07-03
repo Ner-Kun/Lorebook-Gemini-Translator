@@ -22,6 +22,20 @@ from rich.theme import Theme
 from rich.highlighter import ReprHighlighter
 
 
+# Define generic exceptions for API errors
+class ResourceExhausted(Exception):
+    """Generic exception for resource exhausted errors (rate limits)"""
+    pass
+
+class ClientError(Exception):
+    """Generic exception for client errors"""
+    pass
+
+# Create a namespace for errors if needed
+class errors:
+    ClientError = ClientError
+
+
 ICON_BASE64_DATA = """
 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"""
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -91,9 +105,11 @@ def run_updater():
 
 
 def check_and_trigger_update():
-    LOCAL_APP_VERSION = APP_VERSION
-    VERSION_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/main/version.txt"
-    logger.info("Verifying application and launcher versions...")
+    logger.info("Auto-update disabled for development")
+    return  # ← Cette ligne fait sortir de la fonction immédiatement
+    
+    LOCAL_APP_VERSION = APP_VERSION  # Tout le reste ne sera jamais exécuté
+    VERSION_URL = "https://raw.githubusercontent.com/..."
 
     try:
         response = requests.get(VERSION_URL, timeout=5)
@@ -213,7 +229,7 @@ class TranslationJobRunnable(QtCore.QRunnable):
                 usage_meta
             )
 
-            if final_processed_translation is not None:
+            if final_processed_translation and final_processed_translation.strip():
                 self.signals.job_completed.emit(self.job_data, final_processed_translation, thinking_text)
             else:
                 extra_details_for_general_failure = {'model_name_from_job': model_name_requested_for_this_job}
@@ -1939,8 +1955,8 @@ class TranslationTab(QtWidgets.QWidget):
         self.translation_search_input.textChanged.connect(self.filter_translation_table)
         table_layout.addWidget(self.translation_search_input)
         self.table = QtWidgets.QTableWidget()
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(['UID', 'Original Key', f'Translated ({self.current_target_language if self.current_target_language else "N/A"})', 'Content Preview'])
+        self.table.setColumnCount(7)
+        self.table.setHorizontalHeaderLabels(['UID', 'Original Key', f'Translated ({self.current_target_language if self.current_target_language else "N/A"})', 'Content Preview', 'Translated Content', 'Comment', 'Translated Comment'])
         self.table.verticalHeader().setHighlightSections(False)
         self.table.horizontalHeader().setHighlightSections(False)
         self.table.cellClicked.connect(self.on_cell_click)
@@ -1979,13 +1995,49 @@ class TranslationTab(QtWidgets.QWidget):
         edit_buttons_layout.addWidget(self.delete_selected_translations_btn)
         edit_layout.addRow(edit_buttons_layout)
         batch_operations_layout = QtWidgets.QHBoxLayout()
-        trans_sel_btn = QtWidgets.QPushButton('Translate Selected')
+        trans_sel_btn = QtWidgets.QPushButton('Translate Selected Keys')
+        trans_sel_btn.setToolTip("Translate the keys of selected entries")
         trans_sel_btn.clicked.connect(self.translate_selected_rows_action)
         trans_all_btn = QtWidgets.QPushButton('Translate All')
         trans_all_btn.clicked.connect(self.translate_all_action)
         batch_operations_layout.addWidget(trans_sel_btn)
         batch_operations_layout.addWidget(trans_all_btn)
         edit_layout.addRow(batch_operations_layout)
+        
+        # New content translation buttons
+        content_translation_layout = QtWidgets.QHBoxLayout()
+        trans_content_btn = QtWidgets.QPushButton('Translate Selected Content')
+        trans_content_btn.setToolTip("Translate the content field of selected entries (one per UID)")
+        trans_content_btn.clicked.connect(self.translate_content_action)
+        trans_comment_btn = QtWidgets.QPushButton('Translate Selected Comments')
+        trans_comment_btn.setToolTip("Translate the comment field of selected entries (one per UID)")
+        trans_comment_btn.clicked.connect(self.translate_comments_action)
+        content_translation_layout.addWidget(trans_content_btn)
+        content_translation_layout.addWidget(trans_comment_btn)
+        edit_layout.addRow(content_translation_layout)
+        
+        # Translation mode checkboxes for "Translate All"
+        translate_all_group = QtWidgets.QGroupBox("Translate All Options")
+        translate_all_layout = QtWidgets.QVBoxLayout()
+        
+        self.translate_keys_check = QtWidgets.QCheckBox("Translate Keys")
+        self.translate_keys_check.setChecked(True)
+        self.translate_keys_check.setToolTip("Include keys in 'Translate All' operation")
+        
+        self.translate_content_check = QtWidgets.QCheckBox("Translate Content (1 per UID)")
+        self.translate_content_check.setChecked(False)
+        self.translate_content_check.setToolTip("Include content in 'Translate All' operation (one translation per UID)")
+        
+        self.translate_comments_check = QtWidgets.QCheckBox("Translate Comments (1 per UID)")
+        self.translate_comments_check.setChecked(False)
+        self.translate_comments_check.setToolTip("Include comments in 'Translate All' operation (one translation per UID)")
+        
+        translate_all_layout.addWidget(self.translate_keys_check)
+        translate_all_layout.addWidget(self.translate_content_check)
+        translate_all_layout.addWidget(self.translate_comments_check)
+        translate_all_group.setLayout(translate_all_layout)
+        edit_layout.addRow(translate_all_group)
+        
         separator = QtWidgets.QFrame()
         separator.setFrameShape(QtWidgets.QFrame.HLine)
         separator.setFrameShadow(QtWidgets.QFrame.Sunken)
@@ -2297,6 +2349,15 @@ class TranslationTab(QtWidgets.QWidget):
             uid_str = str(uid)
             original_keys = entry_data.get('key', [])
             content = entry_data.get('content', '')
+            comment = entry_data.get('comment', '')  # Get comment field
+            
+            # Get translated content from cache if available
+            content_cache_key = f"content_{uid_str}_{src_lang}_{tgt_lang}"
+            translated_content = str(self.main_window.cache.get(content_cache_key, '')).strip() if tgt_lang else ''
+            
+            # Get translated comment from cache if available
+            comment_cache_key = f"comment_{uid_str}_{src_lang}_{tgt_lang}"
+            translated_comment = str(self.main_window.cache.get(comment_cache_key, '')).strip() if tgt_lang else ''
 
             if not isinstance(original_keys, list):
                 logger.warning(f"Entry UID {uid_str} 'key' field is not a list. Skipping.")
@@ -2309,10 +2370,10 @@ class TranslationTab(QtWidgets.QWidget):
                         continue
                     cache_key = self.main_window._generate_cache_key(uid_str, orig_key_disp, src_lang, tgt_lang)
                     cached_trans = str(self.main_window.cache.get(cache_key, "")).strip() if tgt_lang else ""
-                    new_table_data.append([uid_str, orig_key_disp, cached_trans, content])
+                    new_table_data.append([uid_str, orig_key_disp, cached_trans, content, translated_content, comment, translated_comment])
             else:
                 logger.debug(f"Entry UID {uid_str} has an empty 'key' list. Displaying with a blank key.")
-                new_table_data.append([uid_str, "", "", content])
+                new_table_data.append([uid_str, "", "", content, translated_content, comment, translated_comment])
 
         self.table_data = new_table_data
         logger.debug(f"Populated table: {len(self.table_data)} rows for target '{tgt_lang or 'N/A'}'.")
@@ -2322,26 +2383,48 @@ class TranslationTab(QtWidgets.QWidget):
         self.table.setRowCount(0)
         tgt_lang_header = self.current_target_language
         header_lbl = f'Translated ({tgt_lang_header if tgt_lang_header else "N/A"})'
-        self.table.setHorizontalHeaderLabels(['UID', 'Original Key', header_lbl, 'Content Preview'])
+        self.table.setHorizontalHeaderLabels(['UID', 'Original Key', header_lbl, 'Content Preview', 'Translated Content', 'Comment', 'Translated Comment'])
         if not self.table_data:
             return
         self.table.setRowCount(len(self.table_data))
         try:
             self.table.setUpdatesEnabled(False)
             for r, row_content in enumerate(self.table_data):
-                if len(row_content) == 4:
-                    uid, orig, trans, content = row_content
+                if len(row_content) == 7:
+                    uid, orig, trans, content, trans_content, comment, trans_comment = row_content
+                    self.table.setItem(r, 0, QtWidgets.QTableWidgetItem(uid))
+                    self.table.setItem(r, 1, QtWidgets.QTableWidgetItem(orig))
+                    self.table.setItem(r, 2, QtWidgets.QTableWidgetItem(trans))
+                    # Content preview
+                    preview = str(content).replace("\n", " ")[:147] + "..." if len(str(content).replace("\n", " ")) > 150 else str(content).replace("\n", " ")
+                    self.table.setItem(r, 3, QtWidgets.QTableWidgetItem(preview))
+                    # Translated content preview
+                    trans_content_preview = str(trans_content).replace("\n", " ")[:147] + "..." if len(str(trans_content).replace("\n", " ")) > 150 else str(trans_content).replace("\n", " ")
+                    self.table.setItem(r, 4, QtWidgets.QTableWidgetItem(trans_content_preview))
+                    # Comment (truncated if needed)
+                    comment_preview = str(comment)[:50] + "..." if len(str(comment)) > 50 else str(comment)
+                    self.table.setItem(r, 5, QtWidgets.QTableWidgetItem(comment_preview))
+                    # Translated comment (truncated if needed)
+                    trans_comment_preview = str(trans_comment)[:50] + "..." if len(str(trans_comment)) > 50 else str(trans_comment)
+                    self.table.setItem(r, 6, QtWidgets.QTableWidgetItem(trans_comment_preview))
+                elif len(row_content) == 5:
+                    # Backward compatibility: if old format with 5 columns, fill with empty translated content/comment
+                    uid, orig, trans, content, comment = row_content
                     self.table.setItem(r, 0, QtWidgets.QTableWidgetItem(uid))
                     self.table.setItem(r, 1, QtWidgets.QTableWidgetItem(orig))
                     self.table.setItem(r, 2, QtWidgets.QTableWidgetItem(trans))
                     preview = str(content).replace("\n", " ")[:147] + "..." if len(str(content).replace("\n", " ")) > 150 else str(content).replace("\n", " ")
                     self.table.setItem(r, 3, QtWidgets.QTableWidgetItem(preview))
+                    self.table.setItem(r, 4, QtWidgets.QTableWidgetItem(""))
+                    comment_preview = str(comment)[:50] + "..." if len(str(comment)) > 50 else str(comment)
+                    self.table.setItem(r, 5, QtWidgets.QTableWidgetItem(comment_preview))
+                    self.table.setItem(r, 6, QtWidgets.QTableWidgetItem(""))
                 else:
                     logger.warning(f"Row {r} table_data bad format: {row_content}.")
         finally:
             self.table.setUpdatesEnabled(True)
         header = self.table.horizontalHeader()
-        for i in range(4):
+        for i in range(7):
             header.setSectionResizeMode(i, QtWidgets.QHeaderView.ResizeMode.Interactive)
         self.table.resizeColumnsToContents()
         header.setMinimumSectionSize(50)
@@ -2356,6 +2439,13 @@ class TranslationTab(QtWidgets.QWidget):
             self.table.setColumnWidth(3, 150)
         elif prev_w > 300:
             self.table.setColumnWidth(3, 300)
+        # Set widths for new columns
+        if self.table.columnWidth(4) < 150:
+            self.table.setColumnWidth(4,150)
+        if self.table.columnWidth(5) < 100:
+            self.table.setColumnWidth(5,100)
+        if self.table.columnWidth(6) < 100:
+            self.table.setColumnWidth(6,100)
 
     def on_cell_click(self, row, column):
         self.translator_debounce_timer.stop()
@@ -2375,12 +2465,14 @@ class TranslationTab(QtWidgets.QWidget):
             self.table.clearSelection()
             return
         self.current_row = row
-        _uid, orig_k, trans_k, content_k = self.table_data[row]
+        _uid, orig_k, trans_k, content_k, translated_content_k, comment_k, translated_comment_k = self.table_data[row]
         self.orig_label.setText(orig_k)
         self.trans_edit.blockSignals(True)
         self.trans_edit.setText(trans_k)
         self.trans_edit.blockSignals(False)
-        self.full_content_display.setPlainText(content_k)
+        # Display translated content if available, otherwise original content
+        display_content = translated_content_k if translated_content_k else content_k
+        self.full_content_display.setPlainText(display_content)
         self.current_orig_key_for_editor = orig_k
         self.current_translation_in_editor_before_change = trans_k
         UIAnimator.flash_status_label(self.translator_save_status_label, "<b>Saved ✅</b>")
@@ -2396,7 +2488,8 @@ class TranslationTab(QtWidgets.QWidget):
             return
 
         row_idx = self.current_row
-        uid, orig_k_tbl, _, _ = self.table_data[row_idx]
+        # Get only uid and orig_k from table_data (works with both 4 and 5 column formats)
+        uid, orig_k_tbl = self.table_data[row_idx][0], self.table_data[row_idx][1]
 
         if self.current_orig_key_for_editor != orig_k_tbl:
             logger.warning(f"Editor original key '{self.current_orig_key_for_editor}' mismatches table key '{orig_k_tbl}'. Aborting apply.")
@@ -2460,7 +2553,9 @@ class TranslationTab(QtWidgets.QWidget):
             rows_to_process = sorted([idx.row() for idx in selected_indices])
             logger.info(f"Attempting to delete translations for {len(rows_to_process)} selected row(s) for language «{tgt_lang_to_clear}».")
         elif self.current_row is not None and (0 <= self.current_row < len(self.table_data)):
-            uid_tbl_editor_check, _orig_k_tbl_editor_check, _, _ = self.table_data[self.current_row]
+            # Get only uid and orig_k from table_data (works with both 4 and 5 column formats)
+            uid_tbl_editor_check = self.table_data[self.current_row][0]
+            _orig_k_tbl_editor_check = self.table_data[self.current_row][1]
             if self.current_orig_key_for_editor == _orig_k_tbl_editor_check:
                 rows_to_process = [self.current_row]
                 logger.info(f"Attempting to delete translation for the currently edited row ({self.current_row}) for language «{tgt_lang_to_clear}».")
@@ -2479,7 +2574,10 @@ class TranslationTab(QtWidgets.QWidget):
         items_to_confirm_delete = []
         for row_idx in rows_to_process:
             if 0 <= row_idx < len(self.table_data):
-                uid, orig_k, trans_val, _ = self.table_data[row_idx]
+                # Get uid, orig_k, and trans_val from table_data (works with both 4 and 5 column formats)
+                uid = self.table_data[row_idx][0]
+                orig_k = self.table_data[row_idx][1]
+                trans_val = self.table_data[row_idx][2]
                 if str(trans_val).strip():
                     items_to_confirm_delete.append({'uid': uid, 'orig_k': orig_k, 'trans_val': trans_val, 'row_idx': row_idx})
 
@@ -2553,6 +2651,17 @@ class TranslationTab(QtWidgets.QWidget):
         if not self.main_window.data:
             QtWidgets.QMessageBox.information(self, "Info", "Load or create a LORE-book first.")
             return
+        
+        # Check if at least one checkbox is selected
+        translate_keys = self.translate_keys_check.isChecked()
+        translate_content = self.translate_content_check.isChecked()
+        translate_comments = self.translate_comments_check.isChecked()
+        
+        if not any([translate_keys, translate_content, translate_comments]):
+            QtWidgets.QMessageBox.warning(self, "No Options Selected", 
+                "Please select at least one option: Keys, Content, or Comments.")
+            return
+        
         all_rows = list(range(len(self.table_data)))
         if not all_rows: 
             QtWidgets.QMessageBox.information(self, "Empty Table", "No data in table.")
@@ -2565,12 +2674,193 @@ class TranslationTab(QtWidgets.QWidget):
         if not src_lang: 
             QtWidgets.QMessageBox.warning(self, "No Source Language", "Select source lang.")
             return
-        jobs = self.main_window._prepare_jobs_for_rows(all_rows, src_lang, tgt_lang, False)
-        if jobs: 
-            self.main_window._start_translation_batch(jobs, "Translating All")
+        
+        jobs = []
+        
+        # Prepare key translation jobs if checkbox is selected
+        if translate_keys:
+            key_jobs = self.main_window._prepare_jobs_for_rows(all_rows, src_lang, tgt_lang, False)
+            jobs.extend(key_jobs)
+        
+        # Prepare content translation jobs if checkbox is selected
+        if translate_content:
+            unique_uids = set()
+            for row in all_rows:
+                if row < len(self.table_data):
+                    uid = self.table_data[row][0]
+                    unique_uids.add(uid)
+            
+            for uid in unique_uids:
+                entry_data = self.main_window.data.get("entries", {}).get(uid)
+                if entry_data and entry_data.get('content'):
+                    content_text = entry_data['content']
+                    cache_key = f"content_{uid}_{src_lang}_{tgt_lang}"
+                    
+                    if cache_key not in self.main_window.cache:
+                        job = {
+                            'text_to_translate': content_text,
+                            'source_lang': src_lang,
+                            'target_lang': tgt_lang,
+                            'uid_val_for_lookup': uid,
+                            'context_content_for_api': None,
+                            'translation_type': 'content',
+                            'cache_key': cache_key
+                        }
+                        jobs.append(job)
+        
+        # Prepare comment translation jobs if checkbox is selected
+        if translate_comments:
+            unique_uids = set()
+            for row in all_rows:
+                if row < len(self.table_data):
+                    uid = self.table_data[row][0]
+                    unique_uids.add(uid)
+            
+            for uid in unique_uids:
+                entry_data = self.main_window.data.get("entries", {}).get(uid)
+                if entry_data and entry_data.get('comment'):
+                    comment_text = entry_data['comment']
+                    cache_key = f"comment_{uid}_{src_lang}_{tgt_lang}"
+                    
+                    if cache_key not in self.main_window.cache:
+                        job = {
+                            'text_to_translate': comment_text,
+                            'source_lang': src_lang,
+                            'target_lang': tgt_lang,
+                            'uid_val_for_lookup': uid,
+                            'context_content_for_api': None,
+                            'translation_type': 'comment',
+                            'cache_key': cache_key
+                        }
+                        jobs.append(job)
+        
+        if jobs:
+            job_types = []
+            if translate_keys:
+                job_types.append("Keys")
+            if translate_content:
+                job_types.append("Content")
+            if translate_comments:
+                job_types.append("Comments")
+            job_description = " + ".join(job_types)
+            self.main_window._start_translation_batch(jobs, f"Translating All ({job_description})")
         else: 
             QtWidgets.QMessageBox.information(self, "All Translated", "All items appear translated/cached. Use «Regenerate» or clear cache.")
             self.main_window.status_bar.showMessage("All items already translated/cached.", 3000)
+
+    def translate_content_action(self):
+        """Translate the content field of selected entries"""
+        if not self.main_window.data:
+            QtWidgets.QMessageBox.information(self, "Info", "Load or create a LORE-book first.")
+            return
+        sel_indices = self.table.selectionModel().selectedRows()
+        if not sel_indices:
+            QtWidgets.QMessageBox.information(self, "Info", "Select row(s) to translate content.")
+            return
+        
+        # Get unique UIDs from selected rows
+        selected_rows = [idx.row() for idx in sel_indices]
+        unique_uids = set()
+        for row in selected_rows:
+            if row < len(self.table_data):
+                uid = self.table_data[row][0]  # UID is first column
+                unique_uids.add(uid)
+        
+        tgt_lang = self.current_target_language
+        src_lang = self.current_source_language
+        if not tgt_lang:
+            QtWidgets.QMessageBox.warning(self, "No Target Language", "Select target language.")
+            return
+        if not src_lang:
+            QtWidgets.QMessageBox.warning(self, "No Source Language", "Select source language.")
+            return
+        
+        # Prepare content translation jobs (one per UID)
+        jobs = []
+        for uid in unique_uids:
+            # Find the entry data for this UID
+            entry_data = self.main_window.data.get("entries", {}).get(uid)
+            if entry_data and entry_data.get('content'):
+                content_text = entry_data['content']
+                # Generate a special cache key for content
+                cache_key = f"content_{uid}_{src_lang}_{tgt_lang}"
+                
+                # Check if already translated
+                if cache_key not in self.main_window.cache:
+                    job = {
+                        'text_to_translate': content_text,
+                        'source_lang': src_lang,
+                        'target_lang': tgt_lang,
+                        'uid_val_for_lookup': uid,
+                        'context_content_for_api': None,  # No context for content
+                        'translation_type': 'content',
+                        'cache_key': cache_key
+                    }
+                    jobs.append(job)
+        
+        if jobs:
+            self.main_window._start_translation_batch(jobs, f"Translating Content ({len(jobs)} UIDs)")
+        else:
+            QtWidgets.QMessageBox.information(self, "Nothing to Translate", 
+                "No content to translate or all selected content already translated.")
+            self.main_window.status_bar.showMessage("Content already translated.", 3000)
+    
+    def translate_comments_action(self):
+        """Translate the comment field of selected entries"""
+        if not self.main_window.data:
+            QtWidgets.QMessageBox.information(self, "Info", "Load or create a LORE-book first.")
+            return
+        sel_indices = self.table.selectionModel().selectedRows()
+        if not sel_indices:
+            QtWidgets.QMessageBox.information(self, "Info", "Select row(s) to translate comments.")
+            return
+        
+        # Get unique UIDs from selected rows
+        selected_rows = [idx.row() for idx in sel_indices]
+        unique_uids = set()
+        for row in selected_rows:
+            if row < len(self.table_data):
+                uid = self.table_data[row][0]  # UID is first column
+                unique_uids.add(uid)
+        
+        tgt_lang = self.current_target_language
+        src_lang = self.current_source_language
+        if not tgt_lang:
+            QtWidgets.QMessageBox.warning(self, "No Target Language", "Select target language.")
+            return
+        if not src_lang:
+            QtWidgets.QMessageBox.warning(self, "No Source Language", "Select source language.")
+            return
+        
+        # Prepare comment translation jobs (one per UID)
+        jobs = []
+        for uid in unique_uids:
+            # Find the entry data for this UID
+            entry_data = self.main_window.data.get("entries", {}).get(uid)
+            if entry_data and entry_data.get('comment'):
+                comment_text = entry_data['comment']
+                # Generate a special cache key for comment
+                cache_key = f"comment_{uid}_{src_lang}_{tgt_lang}"
+                
+                # Check if already translated
+                if cache_key not in self.main_window.cache:
+                    job = {
+                        'text_to_translate': comment_text,
+                        'source_lang': src_lang,
+                        'target_lang': tgt_lang,
+                        'uid_val_for_lookup': uid,
+                        'context_content_for_api': None,  # No context for comments
+                        'translation_type': 'comment',
+                        'cache_key': cache_key
+                    }
+                    jobs.append(job)
+        
+        if jobs:
+            self.main_window._start_translation_batch(jobs, f"Translating Comments ({len(jobs)} UIDs)")
+        else:
+            QtWidgets.QMessageBox.information(self, "Nothing to Translate", 
+                "No comments to translate or all selected comments already translated.")
+            self.main_window.status_bar.showMessage("Comments already translated.", 3000)
 
     def regenerate_selected_translation_action(self):
         if not self.main_window.data: 
@@ -2606,18 +2896,31 @@ class TranslationTab(QtWidgets.QWidget):
             return
         term = search_term.lower()
         for i in range(self.table.rowCount()):
+            uid_item = self.table.item(i, 0)
             original_item = self.table.item(i, 1)
             translated_item = self.table.item(i, 2)
-            uid_item = self.table.item(i, 0)
+            content_item = self.table.item(i, 3)
+            trans_content_item = self.table.item(i, 4)
+            comment_item = self.table.item(i, 5)
+            trans_comment_item = self.table.item(i, 6)
             match = False
             if term == "": 
                 match = True
             else:
+                # Check all columns for match
                 if uid_item and term in uid_item.text().lower():
                     match = True
                 if not match and original_item and term in original_item.text().lower():
                     match = True
                 if not match and translated_item and term in translated_item.text().lower(): 
+                    match = True
+                if not match and content_item and term in content_item.text().lower():
+                    match = True
+                if not match and trans_content_item and term in trans_content_item.text().lower():
+                    match = True
+                if not match and comment_item and term in comment_item.text().lower():
+                    match = True
+                if not match and trans_comment_item and term in trans_comment_item.text().lower():
                     match = True
             self.table.setRowHidden(i, not match)
 
@@ -3835,36 +4138,86 @@ class TranslatorApp(QtWidgets.QMainWindow):
         self.active_translation_jobs -= 1
         uid = job_data.get('uid_val_for_lookup', 'N/A')
         used_key = job_data.get('api_key', 'UNKNOWN_KEY')
-        logger.info(f"Job completed for '{job_data.get('text_to_translate')}' (UID {uid}, Key {self._mask_api_key(used_key)}) -> '{translated_text}'. In-flight jobs remaining: {self.active_translation_jobs}")
+        translation_type = job_data.get('translation_type', 'key')  # Default to 'key' for backward compatibility
         
+        logger.info(f"Job completed for {translation_type} (UID {uid}, Key {self._mask_api_key(used_key)}). In-flight jobs remaining: {self.active_translation_jobs}")
+        
+        # Initialize variables
         row_idx = job_data.get('row_idx', -1)
         orig_key = job_data.get('text_to_translate')
         tgt_lang = job_data.get('target_lang', '')
         src_lang = job_data.get('source_lang')
         
-        if all([uid, orig_key, tgt_lang, src_lang]):
-            if self._update_translation_cache(uid, orig_key, translated_text, src_lang, tgt_lang):
+        # Handle different translation types
+        if translation_type == 'content':
+            # Save content translation only if not empty
+            cache_key = job_data.get('cache_key')
+            if cache_key and translated_text and translated_text.strip():
+                self.cache[cache_key] = translated_text
                 self.set_dirty_flag(True)
-                
-                if tgt_lang == self.translation_tab.current_target_language and 0 <= row_idx < len(self.translation_tab.table_data):
-                    tbl_uid, tbl_orig, _, _ = self.translation_tab.table_data[row_idx]
-                    if str(tbl_uid) == str(uid) and tbl_orig == orig_key:
-                        self.translation_tab.table_data[row_idx][2] = translated_text
-                        item = self.translation_tab.table.item(row_idx, 2)
-                        if item:
-                            item.setText(translated_text)
-                            self._flash_row_color(row_idx)
-                        else:
-                            self.translation_tab.table.setItem(row_idx, 2, QtWidgets.QTableWidgetItem(translated_text))
-                        
-                        if self.translation_tab.current_row == row_idx and self.translation_tab.current_orig_key_for_editor == orig_key:
-                            self.translation_tab.trans_edit.blockSignals(True)
-                            self.translation_tab.trans_edit.setText(translated_text)
-                            self.translation_tab.trans_edit.blockSignals(False)
-                            self.translation_tab.current_translation_in_editor_before_change = translated_text
-                            UIAnimator.flash_status_label(self.translation_tab.translator_save_status_label, "<b>Saved ✅</b>")
-        else:
-            logger.error(f"Missing job_data in _handle_job_completed. UID:{uid},Orig:{orig_key},Tgt:{tgt_lang},Src:{src_lang}. Job:{job_data}")
+                # Update the content field in the data
+                if uid in self.data.get("entries", {}):
+                    self.data["entries"][uid]["translated_content"] = translated_text
+                    logger.info(f"Content translation saved for UID {uid}: {translated_text[:50]}...")
+                    # Update table display - find rows with this UID and update translated content column
+                    for row_idx in range(len(self.translation_tab.table_data)):
+                        if self.translation_tab.table_data[row_idx][0] == uid:
+                            self.translation_tab.table_data[row_idx][4] = translated_text  # Column 4 is translated content
+                            item = self.translation_tab.table.item(row_idx, 4)
+                            if item:
+                                item.setText(translated_text[:50] + "..." if len(translated_text) > 50 else translated_text)
+                            # Update full content display if this row is selected
+                            if self.translation_tab.current_row == row_idx:
+                                self.translation_tab.full_content_display.setPlainText(translated_text)
+            else:
+                logger.warning(f"Empty content translation received for UID {uid}, not saving to cache")
+        
+        elif translation_type == 'comment':
+            # Save comment translation only if not empty
+            cache_key = job_data.get('cache_key')
+            if cache_key and translated_text and translated_text.strip():
+                self.cache[cache_key] = translated_text
+                self.set_dirty_flag(True)
+                # Update the comment field in the data
+                if uid in self.data.get("entries", {}):
+                    self.data["entries"][uid]["translated_comment"] = translated_text
+                    logger.info(f"Comment translation saved for UID {uid}: {translated_text[:50]}...")
+                    # Update table display - find rows with this UID and update translated comment column
+                    for row_idx in range(len(self.translation_tab.table_data)):
+                        if self.translation_tab.table_data[row_idx][0] == uid:
+                            self.translation_tab.table_data[row_idx][6] = translated_text  # Column 6 is translated comment
+                            item = self.translation_tab.table.item(row_idx, 6)
+                            if item:
+                                item.setText(translated_text[:50] + "..." if len(translated_text) > 50 else translated_text)
+            else:
+                logger.warning(f"Empty comment translation received for UID {uid}, not saving to cache")
+        
+        else:  # Default 'key' type - original behavior
+            if all([uid, orig_key, tgt_lang, src_lang]):
+                if self._update_translation_cache(uid, orig_key, translated_text, src_lang, tgt_lang):
+                    self.set_dirty_flag(True)
+                    
+                    if tgt_lang == self.translation_tab.current_target_language and 0 <= row_idx < len(self.translation_tab.table_data):
+                        # Get uid and orig_k from table_data (works with both 4 and 5 column formats)
+                        tbl_uid = self.translation_tab.table_data[row_idx][0]
+                        tbl_orig = self.translation_tab.table_data[row_idx][1]
+                        if str(tbl_uid) == str(uid) and tbl_orig == orig_key:
+                            self.translation_tab.table_data[row_idx][2] = translated_text
+                            item = self.translation_tab.table.item(row_idx, 2)
+                            if item:
+                                item.setText(translated_text)
+                                self._flash_row_color(row_idx)
+                            else:
+                                self.translation_tab.table.setItem(row_idx, 2, QtWidgets.QTableWidgetItem(translated_text))
+                            
+                            if self.translation_tab.current_row == row_idx and self.translation_tab.current_orig_key_for_editor == orig_key:
+                                self.translation_tab.trans_edit.blockSignals(True)
+                                self.translation_tab.trans_edit.setText(translated_text)
+                                self.translation_tab.trans_edit.blockSignals(False)
+                                self.translation_tab.current_translation_in_editor_before_change = translated_text
+                                UIAnimator.flash_status_label(self.translation_tab.translator_save_status_label, "<b>Saved ✅</b>")
+            else:
+                logger.error(f"Missing job_data in _handle_job_completed. UID:{uid},Orig:{orig_key},Tgt:{tgt_lang},Src:{src_lang}. Job:{job_data}")
         
         self._update_progress_dialog()
 
@@ -3990,7 +4343,20 @@ class TranslatorApp(QtWidgets.QMainWindow):
             if not (0 <= row_idx < len(self.translation_tab.table_data)): 
                 logger.warning(f"Skipping row idx {row_idx} for job prep - out of bounds.")
                 continue
-            uid, orig_k, trans_cell, content = self.translation_tab.table_data[row_idx]
+            # Handle both 4-column and 5-column formats (with comment)
+            row_data = self.translation_tab.table_data[row_idx]
+            # table_data now has 7 elements: [uid, orig_key, trans, content, translated_content, comment, translated_comment]
+            if len(row_data) >= 7:
+                uid, orig_k, trans_cell, content, translated_content, comment, translated_comment = row_data
+            elif len(row_data) == 4:
+                uid, orig_k, trans_cell, content = row_data
+                translated_content = ""
+                comment = ""
+                translated_comment = ""
+            else:  # 5 or 6 columns
+                uid, orig_k, trans_cell, content, comment = row_data[:5]
+                translated_content = row_data[4] if len(row_data) > 4 else ""
+                translated_comment = row_data[6] if len(row_data) > 6 else ""
             job_data, is_cached = self._get_translation_from_cache_or_prepare_job(orig_k, src_lang, tgt_lang, uid, content, force_regen, False)
             if is_cached:
                 cached_str = str(job_data).strip()
@@ -4095,6 +4461,28 @@ class TranslatorApp(QtWidgets.QMainWindow):
                             final_keys.add(key_text)
                 
                 entry_data['key'] = sorted(list(final_keys))
+                
+                # Handle content translation
+                if 'content' in entry_data and entry_data['content']:
+                    for lang in selected_languages:
+                        content_cache_key = f"content_{uid}_{src_lang}_{lang}"
+                        if content_cache_key in self.cache:
+                            translated_content = self.cache[content_cache_key]
+                            if translated_content:
+                                # Replace content with translation (as per requirement)
+                                entry_data['content'] = translated_content
+                                break  # Use first available translation
+                
+                # Handle comment translation
+                if 'comment' in entry_data and entry_data['comment']:
+                    for lang in selected_languages:
+                        comment_cache_key = f"comment_{uid}_{src_lang}_{lang}"
+                        if comment_cache_key in self.cache:
+                            translated_comment = self.cache[comment_cache_key]
+                            if translated_comment:
+                                # Replace comment with translation (as per requirement)
+                                entry_data['comment'] = translated_comment
+                                break  # Use first available translation
 
         start_dir = os.path.dirname(self.input_path) if self.input_path else os.path.expanduser("~")
         default_save_path = os.path.join(start_dir, f"{lore_name_from_dialog}.json")
@@ -4342,7 +4730,16 @@ if __name__ == '__main__':
     # Only import genai if we're using Gemini provider
     if GEMINI_AVAILABLE:
         from google import genai
-        from google.genai import types, errors
-        from google.api_core.exceptions import ResourceExhausted
+        from google.genai import types
+        # Import Google-specific errors, but keep our generic ones as fallback
+        try:
+            from google.genai import errors as google_errors
+            from google.api_core.exceptions import ResourceExhausted as GoogleResourceExhausted
+            # Update the generic classes with Google's if available
+            ResourceExhausted = GoogleResourceExhausted
+            errors.ClientError = google_errors.ClientError
+        except ImportError:
+            # Keep using our generic exceptions
+            pass
 
     run_main_app()
