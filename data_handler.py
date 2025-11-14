@@ -5,10 +5,10 @@ from logging import Logger
 import copy
 from PySide6 import QtCore
 from typing import TypedDict, NotRequired, override, final, TypeGuard, cast
-from omni_trans_core import settings
 from omni_trans_core.interfaces import AbstractDataHandler, TranslatableItem
+from .constants import LOG_PREFIX
 
-logger: Logger = logging.getLogger(f'{settings.LOG_PREFIX}_APP.data_handler')
+logger: Logger = logging.getLogger(f'{LOG_PREFIX}_APP.data_handler')
 
 class LorebookEntry(TypedDict, total=False):
     uid: int

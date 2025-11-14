@@ -7,11 +7,12 @@ from .ui.dialogs import ExportSettingsDialog
 from omni_trans_core import settings
 from omni_trans_core.localization_manager import translate
 from typing import TYPE_CHECKING
+from .constants import LOG_PREFIX
 
 if TYPE_CHECKING:
     from omni_trans_core.core import CoreApp
 
-logger = logging.getLogger(f"{settings.LOG_PREFIX}_APP.export_manager")
+logger = logging.getLogger(f"{LOG_PREFIX}_APP.export_manager")
 
 def export_lorebook(main_window: "CoreApp"):
     if not main_window.data_handler.data:
