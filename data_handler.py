@@ -45,6 +45,7 @@ class LorebookEntry(TypedDict, total=False):
 
 class LorebookData(TypedDict):
     entries: dict[str, LorebookEntry]
+    deleted: NotRequired[list[str]]
 
 LOREBOOK_TEMPLATE: LorebookData = {"entries": {}}
 
@@ -72,6 +73,7 @@ class LorebookDataHandler(AbstractDataHandler):
         self.cache_file_path: str | None = None
         self._is_dirty: bool = False
         self.modified_entry_ids: set[str] = set()
+        self.deleted_entry_ids: set[str] = set()
 
     def _ensure_entry_key_is_list(self, entry_data: LorebookEntry) -> None:
         current_primary_key_field: list[str] | None = entry_data.get("key")
@@ -95,6 +97,7 @@ class LorebookDataHandler(AbstractDataHandler):
         self.data = None
         self.original_data = None
         self.modified_entry_ids.clear()
+        self.deleted_entry_ids.clear()
         self.input_path = None
         self.set_dirty_flag(False)
         logger.debug("LorebookDataHandler state has been reset.")
@@ -102,47 +105,39 @@ class LorebookDataHandler(AbstractDataHandler):
     @override
     def load(self, path: str) -> None:
         if not path or not os.path.exists(path):
-            logger.error(f"LORE-book not found: {path}")
             raise FileNotFoundError(f"File not found: {path}")
         self.reset_state()
         try:
             with open(file=path, mode="r", encoding="utf-8") as f:
-                loaded_json: dict[str, object] = cast(dict[str, object], json.load(f))
+                loaded_json = cast(dict[str, object], json.load(f))
             if not is_lorebook_data(loaded_json):
-                raise ValueError(
-                    "Invalid LORE-book format: Missing 'entries' dictionary."
-                )
+                raise ValueError("Invalid LORE-book format.")
             self.original_data = loaded_json
             self.data = copy.deepcopy(x=self.original_data)
             self.input_path = path
+            
             base_name, _ = os.path.splitext(self.input_path)
             edit_file_path: str = f"{base_name}_edit.json"
             if os.path.exists(path=edit_file_path):
-                logger.info(f"Found edit file: {edit_file_path}. Applying edits.")
                 try:
                     with open(file=edit_file_path, mode="r", encoding="utf-8") as f:
-                        edits: dict[str, object] = cast(
-                            dict[str, object], json.load(fp=f)
-                        )
+                        edits = cast(dict[str, object], json.load(fp=f))
                     if is_lorebook_data(edits):
+                        for del_id in edits.get("deleted", []):
+                            if str(del_id) in self.data["entries"]:
+                                del self.data["entries"][str(del_id)]
+                            self.deleted_entry_ids.add(str(del_id))
                         for entry_id, edited_entry_data in edits["entries"].items():
-                            if self.data:
-                                self.data["entries"][entry_id] = edited_entry_data
-                                logger.debug(f"Applied edit for entry ID '{entry_id}'.")
-                except Exception as e_edit:
-                    logger.error(
-                        f"Failed to load or apply edits from {edit_file_path}: {e_edit}",
-                        exc_info=True,
-                    )
+                            self.deleted_entry_ids.discard(entry_id)
+                            self.data["entries"][entry_id] = edited_entry_data
+                except Exception as e:
+                    logger.error(f"Failed to apply edits: {e}")
+
             for entry_data in self.data["entries"].values():
                 self._ensure_entry_key_is_list(entry_data)
-            logger.info(
-                f"Loaded LORE-book. Total Entries (with edits): {len(self.data['entries'])}"
-            )
             self.data_loaded.emit()
             self.set_dirty_flag(False)
         except Exception as e:
-            logger.error(f"LORE-book load error {path}: {e}", exc_info=True)
             self.reset_state()
             raise e
 
@@ -174,38 +169,41 @@ class LorebookDataHandler(AbstractDataHandler):
         assert self.input_path is not None, "Cannot save with no input path set."
         assert self.data is not None, "Cannot save with no data loaded."
 
-        if self.modified_entry_ids:
+        if self.modified_entry_ids or self.deleted_entry_ids:
             base_name, _ = os.path.splitext(self.input_path)
             edit_file_path: str = f"{base_name}_edit.json"
-            logger.info(
-                f"Saving {len(self.modified_entry_ids)} modified entries to {edit_file_path}..."
-            )
-            edits_to_save: LorebookData = {"entries": {}}
+
+            logger.info(f"Saving changes to {edit_file_path}...")
+
+            edits_to_save: LorebookData = {"entries": {}, "deleted": []}
+
             if os.path.exists(path=edit_file_path):
                 try:
                     with open(edit_file_path, mode="r", encoding="utf-8") as f:
                         existing_edits = cast(dict[str, object], json.load(fp=f))
                     if is_lorebook_data(existing_edits):
                         edits_to_save = existing_edits
-                    else:
-                        logger.warning(
-                            f"Existing edit file {edit_file_path} has invalid format, creating new one."
-                        )
                 except Exception as e:
-                    logger.warning(
-                        f"Could not read existing edit file at {edit_file_path}, it will be overwritten. Error: {e}"
-                    )
+                    logger.warning(f"Could not read existing edit file: {e}")
+
             for entry_id in self.modified_entry_ids:
                 if entry_id in self.data["entries"]:
                     edits_to_save["entries"][entry_id] = self.data["entries"][entry_id]
+
+            for del_id in self.deleted_entry_ids:
+                if del_id in edits_to_save["entries"]:
+                    del edits_to_save["entries"][del_id]
+
+            edits_to_save["deleted"] = list(self.deleted_entry_ids)
+
             with open(file=edit_file_path, mode="w", encoding="utf-8") as f:
                 json.dump(obj=edits_to_save, fp=f, ensure_ascii=False, indent=2)
-            logger.info("Successfully saved edits.")
+
+            logger.info("Successfully saved edits and deletions.")
             self.modified_entry_ids.clear()
         else:
-            logger.debug(
-                "Save called, but no entries have been modified. Skipping write to _edit.json."
-            )
+            logger.debug("Save called, but nothing modified.")
+
         self.set_dirty_flag(False)
 
     @override
@@ -359,8 +357,13 @@ class LorebookDataHandler(AbstractDataHandler):
                 f"Attempted to delete a non-existent entry with ID {entry_id}"
             )
             return
+
         del self.data["entries"][entry_id]
+
+        self.deleted_entry_ids.add(entry_id)
+
         self.modified_entry_ids.discard(entry_id)
+
         self.set_dirty_flag(True)
         self.entry_deleted.emit(entry_id)
         logger.info(f"Deleted entry ID: {entry_id} from current session.")

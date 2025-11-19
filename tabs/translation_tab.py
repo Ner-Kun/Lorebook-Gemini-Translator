@@ -163,10 +163,12 @@ class TranslationTab(AbstractTab, IControlWidgetActions):
             return
         logger.info(f"Target language changed to: {lang_name or 'None'}")
         self.control_panel.set_active_language(lang_name)
+
         hdr_text = f"Translated ({lang_name if lang_name else 'N/A'})"
         hdr_item = self.table.horizontalHeaderItem(2)
         if hdr_item:
             hdr_item.setText(hdr_text)
+
         self.full_content_display.clear()
         self.table.clearSelection()
         self.control_panel.clear_selection()

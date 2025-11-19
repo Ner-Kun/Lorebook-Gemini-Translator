@@ -1,5 +1,3 @@
-# File: lgt_app/runner.py
-
 import os
 import sys
 import logging
@@ -17,10 +15,8 @@ from pathlib import Path
 def main() -> None:
     _ = install_rich_tracebacks(show_locals=True)
 
-    # Обновленный способ найти корень проекта (на уровень выше, чем lgt_app)
     project_root = str(Path(__file__).parent.parent.resolve())
 
-    # Добавляем корень проекта в пути, чтобы omni_trans_core мог быть импортирован
     sys.path.insert(0, project_root)
 
     settings.initialize_app_paths(project_root_path=project_root)
