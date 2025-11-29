@@ -1,3 +1,5 @@
 translator_settings.json
 *_translation_cache.json
 *.tmp
+.gptree_config
+old.txt
