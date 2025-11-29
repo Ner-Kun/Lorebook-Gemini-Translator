@@ -2,7 +2,7 @@
 APP_NAME = "Lorebook Gemini Translator"
 APP_VERSION = "0.2.0"
 LOG_PREFIX = "L_G_T"
-APP_VERSION_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/refs/heads/refactor_0_2_0/version.txt"
+APP_VERSION_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/refs/heads/main/version.txt"
 
 
 # Prompt
