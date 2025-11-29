@@ -2,7 +2,9 @@ APP_VERSION=0.1.0
 VERSION=0.1.0
 LAUNCHER_VERSION=0.1.0
 UPDATER_VERSION=0.1.0
-
+CRITICAL=true
+NEW_FEATURE=true
+BUGFIX=false
 REPO_URL=https://github.com/Ner-Kun/Lorebook-Gemini-Translator
 MIN_CORE_VERSION=1.0.0
 NEW_FEATURE=true
