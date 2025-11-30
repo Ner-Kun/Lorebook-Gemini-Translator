@@ -1,6 +1,6 @@
 # Application constants
 APP_NAME = "Lorebook Gemini Translator"
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.2.1"
 LOG_PREFIX = "L_G_T"
 APP_VERSION_URL = "https://raw.githubusercontent.com/Ner-Kun/Lorebook-Gemini-Translator/refs/heads/main/version.txt"
 
